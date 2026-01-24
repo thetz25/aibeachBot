@@ -3,7 +3,8 @@ import { config } from '../config/env';
 import { sendMessage } from '../services/messenger.service';
 import { generateAIResponse } from '../services/openai.service';
 
-const pausedUsers = new Set<string>();
+const pausedUsers = new Map<string, number>(); // UserId -> Expiry Timestamp
+const PAUSE_DURATION_MS = 5 * 60 * 1000; // 5 Minutes
 
 // GET /webhook - Verification Challenge
 export const verifyWebhook = (req: Request, res: Response) => {
@@ -39,8 +40,14 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
                     // CHECK: Is user paused?
                     if (pausedUsers.has(senderId)) {
-                        console.log(`🤐 User ${senderId} is paused (Human Agent Active). Ignoring.`);
-                        continue;
+                        const expiry = pausedUsers.get(senderId) || 0;
+                        if (Date.now() < expiry) {
+                            console.log(`🤐 User ${senderId} is paused (Human Active). Ignoring until ${new Date(expiry).toLocaleTimeString()}`);
+                            continue;
+                        } else {
+                            console.log(`⏰ Pause expired for ${senderId}. Bot waking up.`);
+                            pausedUsers.delete(senderId);
+                        }
                     }
 
                     if (webhook_event.message && webhook_event.message.text) {
@@ -52,9 +59,10 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
                         // HANDOFF CHECK
                         if (aiReply.includes('TRANSFER_AGENT')) {
-                            pausedUsers.add(senderId);
+                            // Pause for 5 minutes from NOW
+                            pausedUsers.set(senderId, Date.now() + PAUSE_DURATION_MS);
                             await sendMessage(senderId, "✅ Handing you over to a human agent. Please wait, they will reply shortly.");
-                            console.log(`👨‍💼 HANDOFF TRIGGERED for ${senderId}`);
+                            console.log(`👨‍💼 HANDOFF TRIGGERED for ${senderId}. Bot paused for 5 mins.`);
                         } else {
                             await sendMessage(senderId, aiReply);
                         }
