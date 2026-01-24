@@ -3,6 +3,8 @@ import { config } from '../config/env';
 import { sendMessage } from '../services/messenger.service';
 import { generateAIResponse } from '../services/openai.service';
 
+const pausedUsers = new Set<string>();
+
 // GET /webhook - Verification Challenge
 export const verifyWebhook = (req: Request, res: Response) => {
     const mode = req.query['hub.mode'];
@@ -34,13 +36,28 @@ export const handleWebhook = async (req: Request, res: Response) => {
                     console.log('📩 Received event:', webhook_event);
 
                     const senderId = webhook_event.sender.id;
+
+                    // CHECK: Is user paused?
+                    if (pausedUsers.has(senderId)) {
+                        console.log(`🤐 User ${senderId} is paused (Human Agent Active). Ignoring.`);
+                        continue;
+                    }
+
                     if (webhook_event.message && webhook_event.message.text) {
                         const receivedText = webhook_event.message.text;
 
                         // AI Logic
                         console.log(`🤖 Generatng AI response for: "${receivedText}"`);
                         const aiReply = await generateAIResponse(receivedText);
-                        await sendMessage(senderId, aiReply);
+
+                        // HANDOFF CHECK
+                        if (aiReply.includes('TRANSFER_AGENT')) {
+                            pausedUsers.add(senderId);
+                            await sendMessage(senderId, "✅ Handing you over to a human agent. Please wait, they will reply shortly.");
+                            console.log(`👨‍💼 HANDOFF TRIGGERED for ${senderId}`);
+                        } else {
+                            await sendMessage(senderId, aiReply);
+                        }
                     }
                 }
             }
