@@ -35,7 +35,19 @@ export const handleWebhook = async (req: Request, res: Response) => {
             // Iterate over each messaging event
             if (entry.messaging) {
                 for (const webhook_event of entry.messaging) {
-                    console.log('📩 Received event:', webhook_event);
+                    console.log('📩 Received event:', JSON.stringify(webhook_event, null, 2));
+
+                    // 0. Handle ECHO (Messages sent by Page/Human)
+                    if (webhook_event.message && webhook_event.message.is_echo) {
+                        const metadata = webhook_event.message.metadata;
+                        // If metadata is NOT "BOT_MESSAGE", it means a human sent it via Inbox
+                        if (metadata !== 'BOT_MESSAGE') {
+                            const recipientId = webhook_event.recipient.id; // In echo, recipient is the User
+                            console.log(`👨‍💻 HUMAN ADMIN replied to ${recipientId}. Pausing AI for 30 mins.`);
+                            pausedUsers.set(recipientId, Date.now() + (30 * 60 * 1000)); // 30 Minutes
+                        }
+                        continue; // Skip processing any echo
+                    }
 
                     const senderId = webhook_event.sender.id;
 

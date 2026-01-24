@@ -8,7 +8,10 @@ export const sendMessage = async (recipientId: string, text: string) => {
         await axios.post(FACEBOOK_API_URL, {
             messaging_type: 'RESPONSE',
             recipient: { id: recipientId },
-            message: { text }
+            message: {
+                text: text,
+                metadata: "BOT_MESSAGE"
+            }
         }, {
             params: { access_token: config.facebook.pageAccessToken }
         });
