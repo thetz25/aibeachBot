@@ -32,6 +32,15 @@ export const handleWebhook = async (req: Request, res: Response) => {
     if (body.object === 'page') {
         // Iterate over each entry - there may be multiple if batched
         for (const entry of body.entry) {
+            // Get Page ID and Token
+            const pageId = entry.id;
+            const pageAccessToken = config.facebook.getToken(pageId);
+
+            if (!pageAccessToken) {
+                console.error(`❌ No Access Token found for Page ID: ${pageId}. Skipping event.`);
+                continue;
+            }
+
             // Iterate over each messaging event
             if (entry.messaging) {
                 for (const webhook_event of entry.messaging) {
@@ -77,13 +86,13 @@ export const handleWebhook = async (req: Request, res: Response) => {
                         if (aiReply.includes('TRANSFER_AGENT')) {
                             // Pause for 5 minutes from NOW
                             pausedUsers.set(senderId, Date.now() + PAUSE_DURATION_MS);
-                            await sendMessage(senderId, "✅ Handing you over to a human agent. Please wait, they will reply shortly.");
+                            await sendMessage(senderId, "✅ Handing you over to a human agent. Please wait, they will reply shortly.", pageAccessToken);
                             console.log(`👨‍💼 HANDOFF TRIGGERED for ${senderId}. Bot paused for 5 mins.`);
                             // Validate if we should save the handoff message? Yes.
                             await saveMessage(senderId, 'user', receivedText);
                             await saveMessage(senderId, 'assistant', "✅ Handing you over to a human agent...");
                         } else {
-                            await sendMessage(senderId, aiReply);
+                            await sendMessage(senderId, aiReply, pageAccessToken);
 
                             // 2. Save to Airtable (Fire and forget to not block response)
                             saveMessage(senderId, 'user', receivedText);
