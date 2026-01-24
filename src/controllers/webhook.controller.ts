@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { config } from '../config/env';
 import { sendMessage } from '../services/messenger.service';
 import { generateAIResponse } from '../services/openai.service';
-import { getHistory, saveMessage } from '../services/db.service';
+import { getHistory, saveMessage, getPageCredential } from '../services/db.service';
 
 const pausedUsers = new Map<string, number>(); // UserId -> Expiry Timestamp
 const PAUSE_DURATION_MS = 5 * 60 * 1000; // 5 Minutes
@@ -32,9 +32,18 @@ export const handleWebhook = async (req: Request, res: Response) => {
     if (body.object === 'page') {
         // Iterate over each entry - there may be multiple if batched
         for (const entry of body.entry) {
-            // Get Page ID and Token
+            // Get Page ID and Token (Env or DB)
             const pageId = entry.id;
-            const pageAccessToken = config.facebook.getToken(pageId);
+            let pageAccessToken = config.facebook.getToken(pageId);
+
+            // If not in Env, try DB
+            if (!pageAccessToken) {
+                // console.log(`🔍 Checking DB for Page Token: ${pageId}`);
+                const dbToken = await getPageCredential(pageId);
+                if (dbToken) {
+                    pageAccessToken = dbToken;
+                }
+            }
 
             if (!pageAccessToken) {
                 console.error(`❌ No Access Token found for Page ID: ${pageId}. Skipping event.`);

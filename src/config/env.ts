@@ -23,13 +23,16 @@ export const config = {
             if (pageTokens[pageId]) return pageTokens[pageId];
             // 2. Fallback to single token (Assume it matches if map invalid or legacy usage)
             return process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
-        }
+        },
+        appId: process.env.FACEBOOK_APP_ID,
+        appSecret: process.env.FACEBOOK_APP_SECRET
     },
     supabase: {
         url: process.env.SUPABASE_URL,
         key: process.env.SUPABASE_KEY,
         tableName: 'messages'
-    }
+    },
+    publicUrl: process.env.APP_URL || 'http://localhost:3000'
 };
 
 if (!config.facebook.pageAccessToken && Object.keys(pageTokens).length === 0) {
