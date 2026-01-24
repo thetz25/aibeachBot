@@ -19,6 +19,8 @@ export const loginWithFacebook = (req: Request, res: Response) => {
     const redirectUri = `${config.publicUrl}/auth/facebook/callback`;
     const scope = 'pages_show_list,pages_messaging,pages_read_engagement';
 
+    console.log(`🔐 Starting OAuth Flow. Redirect URI: ${redirectUri}`);
+
     // Construct the OAuth URL
     const url = `${FB_AUTH_URL}?client_id=${config.facebook.appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code`;
 
