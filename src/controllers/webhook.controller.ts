@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { config } from '../config/env';
 import { sendMessage } from '../services/messenger.service';
 import { generateAIResponse } from '../services/openai.service';
-import { getHistory, saveMessage } from '../services/airtable.service';
+import { getHistory, saveMessage } from '../services/db.service';
 
 const pausedUsers = new Map<string, number>(); // UserId -> Expiry Timestamp
 const PAUSE_DURATION_MS = 5 * 60 * 1000; // 5 Minutes

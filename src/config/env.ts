@@ -7,10 +7,10 @@ export const config = {
         pageAccessToken: process.env.FACEBOOK_PAGE_ACCESS_TOKEN,
         verifyToken: process.env.FACEBOOK_VERIFY_TOKEN
     },
-    airtable: {
-        apiKey: process.env.AIRTABLE_API_KEY,
-        baseId: process.env.AIRTABLE_BASE_ID,
-        tableName: process.env.AIRTABLE_TABLE_NAME || 'Messages'
+    supabase: {
+        url: process.env.SUPABASE_URL,
+        key: process.env.SUPABASE_KEY,
+        tableName: 'messages'
     }
 };
 

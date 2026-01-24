@@ -8,7 +8,7 @@ import Airtable from 'airtable';
 
 const run = async () => {
     console.log("🔍 Testing Airtable Connection...");
-    console.log("   API Key present:", !!process.env.AIRTABLE_API_KEY);
+    console.log("   API Key present:", !!process.env.AIRTABLE_API_KEY && process.env.AIRTABLE_API_KEY.startsWith('pat'));
     console.log("   Base ID present:", !!process.env.AIRTABLE_BASE_ID);
     console.log("   Table Name:", process.env.AIRTABLE_TABLE_NAME || 'Messages');
 
@@ -17,11 +17,29 @@ const run = async () => {
         return;
     }
 
-    try {
-        const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID);
-        const table = base(process.env.AIRTABLE_TABLE_NAME || 'Messages');
+    const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID);
+    const table = base(process.env.AIRTABLE_TABLE_NAME || 'Messages');
 
-        console.log("🚀 Attempting to create a test record...");
+    // 1. Test READ Access
+    console.log("\n📡 Phase 1: Testing READ Access...");
+    try {
+        const reads = await table.select({ maxRecords: 1 }).firstPage();
+        console.log(`✅ READ Success! Found ${reads.length} records.`);
+    } catch (error: any) {
+        console.error("❌ READ Failed:");
+        console.error("   Message:", error.message);
+        if (error.statusCode === 404) {
+            console.error("   → Check BASE ID and TABLE NAME.");
+        } else if (error.statusCode === 401 || error.statusCode === 403) {
+            console.error("   → Check API KEY and 'data.records:read' scope.");
+            console.error("   → Check if Token has access to this specific Base.");
+        }
+        return; // Stop if we can't even read
+    }
+
+    // 2. Test WRITE Access
+    console.log("\n✏️  Phase 2: Testing WRITE Access...");
+    try {
         const records = await table.create([
             {
                 fields: {
@@ -31,23 +49,19 @@ const run = async () => {
                 }
             }
         ]);
-
-        console.log("✅ Success! Record created with ID:", records[0].id);
+        console.log("✅ WRITE Success! Record created with ID:", records[0].id);
 
         console.log("🗑️ Cleaning up test record...");
         await table.destroy([records[0].id]);
-        console.log("✅ Custom Cleanup Complete.");
+        console.log("✅ Cleanup Success.");
 
     } catch (error: any) {
-        console.error("❌ Failed to connect or write to Airtable:");
-        console.error("   Error Type:", error.name);
+        console.error("❌ WRITE Failed:");
         console.error("   Message:", error.message);
-        if (error.statusCode === 404) {
-            console.error("   HINT: Check if Base ID is correct and Table Name matches EXACTLY (Case Sensitive).");
-        } else if (error.statusCode === 401 || error.statusCode === 403) {
-            console.error("   HINT: Check if API Key is correct and has 'data.records:write' scope.");
-        } else if (error.message.includes('Field')) {
-            console.error("   HINT: Check if your columns (UserId, Role, Content) exist and are spelled correctly.");
+        if (error.statusCode === 403 || error.statusCode === 401) {
+            console.error("   → Missing 'data.records:write' scope on the Token.");
+        } else {
+            console.error("   → Check if field names (UserId, Role, Content) match your Airtable columns exactly.");
         }
     }
 };
