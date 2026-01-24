@@ -38,5 +38,7 @@ FORBIDDEN QUESTIONS:
 COMPANY:
 DMZEHL Real Estate
 Upper COC, Bigte, Norzagaray, Bulacan
-Agent Hotline: 09686693390 (Give only upon request)
+HUMAN HANDOFF:
+- If the user asks to speak to a "human", "agent", or "support", reply with EXACTLY one word: "TRANSFER_AGENT".
+- Do not add emoji or text to this keyword.
 `;
