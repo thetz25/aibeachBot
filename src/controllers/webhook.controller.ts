@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { config } from '../config/env';
 import { sendMessage } from '../services/messenger.service';
 import { generateAIResponse } from '../services/openai.service';
-import { getHistory, saveMessage, getPageCredential } from '../services/db.service';
+import { getHistory, saveMessage } from '../services/db.service';
 
 const pausedUsers = new Map<string, number>(); // UserId -> Expiry Timestamp
 const PAUSE_DURATION_MS = 5 * 60 * 1000; // 5 Minutes
@@ -32,24 +32,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
     if (body.object === 'page') {
         // Iterate over each entry - there may be multiple if batched
         for (const entry of body.entry) {
-            // Get Page ID and Token (Env or DB)
-            const pageId = entry.id;
-            let pageAccessToken = config.facebook.getToken(pageId);
-
-            // If not in Env, try DB
-            if (!pageAccessToken) {
-                // console.log(`🔍 Checking DB for Page Token: ${pageId}`);
-                const dbToken = await getPageCredential(pageId);
-                if (dbToken) {
-                    pageAccessToken = dbToken;
-                }
-            }
-
-            if (!pageAccessToken) {
-                console.error(`❌ No Access Token found for Page ID: ${pageId}. Skipping event.`);
-                continue;
-            }
-
             // Iterate over each messaging event
             if (entry.messaging) {
                 for (const webhook_event of entry.messaging) {
@@ -95,13 +77,13 @@ export const handleWebhook = async (req: Request, res: Response) => {
                         if (aiReply.includes('TRANSFER_AGENT')) {
                             // Pause for 5 minutes from NOW
                             pausedUsers.set(senderId, Date.now() + PAUSE_DURATION_MS);
-                            await sendMessage(senderId, "✅ Handing you over to a human agent. Please wait, they will reply shortly.", pageAccessToken);
+                            await sendMessage(senderId, "✅ Handing you over to a human agent. Please wait, they will reply shortly.");
                             console.log(`👨‍💼 HANDOFF TRIGGERED for ${senderId}. Bot paused for 5 mins.`);
                             // Validate if we should save the handoff message? Yes.
                             await saveMessage(senderId, 'user', receivedText);
                             await saveMessage(senderId, 'assistant', "✅ Handing you over to a human agent...");
                         } else {
-                            await sendMessage(senderId, aiReply, pageAccessToken);
+                            await sendMessage(senderId, aiReply);
 
                             // 2. Save to Airtable (Fire and forget to not block response)
                             saveMessage(senderId, 'user', receivedText);
