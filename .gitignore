@@ -1,0 +1,19 @@
+# AI Employee Security Protocol
+# SECTION 7.1: NEVER COMMIT SECRETS
+
+.env
+.env.*
+!.env.example
+
+# Working Memory & Logs
+.agent/logs/*
+.agent/temp/*
+crash_log.json
+
+# Node Modules
+node_modules/
+npm-debug.log
+
+# System
+.DS_Store
+Thumbs.db
