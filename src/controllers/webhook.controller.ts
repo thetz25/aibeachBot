@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { config } from '../config/env';
 import { sendMessage } from '../services/messenger.service';
 import { generateAIResponse } from '../services/openai.service';
+import { getHistory, saveMessage } from '../services/airtable.service';
 
 const pausedUsers = new Map<string, number>(); // UserId -> Expiry Timestamp
 const PAUSE_DURATION_MS = 5 * 60 * 1000; // 5 Minutes
@@ -53,9 +54,12 @@ export const handleWebhook = async (req: Request, res: Response) => {
                     if (webhook_event.message && webhook_event.message.text) {
                         const receivedText = webhook_event.message.text;
 
+                        // 1. Fetch History
+                        const history = await getHistory(senderId);
+
                         // AI Logic
                         console.log(`🤖 Generatng AI response for: "${receivedText}"`);
-                        const aiReply = await generateAIResponse(receivedText);
+                        const aiReply = await generateAIResponse(receivedText, history);
 
                         // HANDOFF CHECK
                         if (aiReply.includes('TRANSFER_AGENT')) {
@@ -63,8 +67,15 @@ export const handleWebhook = async (req: Request, res: Response) => {
                             pausedUsers.set(senderId, Date.now() + PAUSE_DURATION_MS);
                             await sendMessage(senderId, "✅ Handing you over to a human agent. Please wait, they will reply shortly.");
                             console.log(`👨‍💼 HANDOFF TRIGGERED for ${senderId}. Bot paused for 5 mins.`);
+                            // Validate if we should save the handoff message? Yes.
+                            await saveMessage(senderId, 'user', receivedText);
+                            await saveMessage(senderId, 'assistant', "✅ Handing you over to a human agent...");
                         } else {
                             await sendMessage(senderId, aiReply);
+
+                            // 2. Save to Airtable (Fire and forget to not block response)
+                            saveMessage(senderId, 'user', receivedText);
+                            saveMessage(senderId, 'assistant', aiReply);
                         }
                     }
                 }

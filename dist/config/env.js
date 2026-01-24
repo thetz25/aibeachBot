@@ -11,9 +11,14 @@ exports.config = {
     facebook: {
         pageAccessToken: process.env.FACEBOOK_PAGE_ACCESS_TOKEN,
         verifyToken: process.env.FACEBOOK_VERIFY_TOKEN
+    },
+    airtable: {
+        apiKey: process.env.AIRTABLE_API_KEY,
+        baseId: process.env.AIRTABLE_BASE_ID,
+        tableName: process.env.AIRTABLE_TABLE_NAME || 'Messages'
     }
 };
 if (!exports.config.facebook.pageAccessToken || !exports.config.facebook.verifyToken) {
-    console.error("❌ CRITICAL: Missing Facebook Credentials in .env");
-    process.exit(1);
+    console.error("⚠️ WARNING: Missing Facebook Credentials. Chatbot will not function correctly.");
+    // Do not process.exit(1) in serverless environments, it causes 502/500 errors.
 }

@@ -18,8 +18,12 @@ app.post('/webhook', webhook_controller_1.handleWebhook);
 app.get('/', (req, res) => {
     res.send('🤖 AI Employee Chatbot is ALIVE and WAITING.');
 });
-// Start Server
-app.listen(env_1.config.port, () => {
-    console.log(`🚀 Server is running on port ${env_1.config.port}`);
-    console.log(`🔍 Environment: Node ${process.version}`);
-});
+// Export the app for Vercel Serverless
+exports.default = app;
+// Only start the server if running locally (not imported as a module)
+if (require.main === module) {
+    app.listen(env_1.config.port, () => {
+        console.log(`🚀 Server is running on port ${env_1.config.port}`);
+        console.log(`🔍 Environment: Node ${process.version}`);
+    });
+}

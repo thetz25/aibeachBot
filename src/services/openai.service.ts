@@ -11,14 +11,17 @@ const openai = new OpenAI({
 
 const SYSTEM_PROMPT = BOT_PERSONA;
 
-export const generateAIResponse = async (userMessage: string): Promise<string> => {
+export const generateAIResponse = async (userMessage: string, history: Array<{ role: 'user' | 'assistant', content: string }> = []): Promise<string> => {
     try {
+        const messages: any[] = [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...history.map(msg => ({ role: msg.role, content: msg.content })),
+            { role: "user", content: userMessage }
+        ];
+
         const completion = await openai.chat.completions.create({
             model: "gpt-4o-mini", // Using mini for speed/cost efficiency
-            messages: [
-                { role: "system", content: SYSTEM_PROMPT },
-                { role: "user", content: userMessage }
-            ],
+            messages: messages,
             max_tokens: 300,
         });
 
