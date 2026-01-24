@@ -10,6 +10,6 @@ export const config = {
 };
 
 if (!config.facebook.pageAccessToken || !config.facebook.verifyToken) {
-    console.error("❌ CRITICAL: Missing Facebook Credentials in .env");
-    process.exit(1);
+    console.error("⚠️ WARNING: Missing Facebook Credentials. Chatbot will not function correctly.");
+    // Do not process.exit(1) in serverless environments, it causes 502/500 errors.
 }

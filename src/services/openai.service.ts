@@ -1,16 +1,15 @@
 import OpenAI from 'openai';
 import { config } from '../config/env';
 
+import { BOT_PERSONA } from '../config/knowledge';
+
 // Initialize OpenAI Client
 // NOTE: Ensure OPENAI_API_KEY is in .env
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
-const SYSTEM_PROMPT = ` You are a helpful, professional AI employee assistant living inside Facebook Messenger.
-Your goal is to assist the user concisely. 
-Do not use markdown formatting (bold, italic) that Messenger might not render well, or keep it very simple.
-Keep responses under 1000 characters if possible.`;
+const SYSTEM_PROMPT = BOT_PERSONA;
 
 export const generateAIResponse = async (userMessage: string): Promise<string> => {
     try {
