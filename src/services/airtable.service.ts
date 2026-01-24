@@ -61,7 +61,6 @@ export const getHistory = async (userId: string, limit: number = 10): Promise<Ch
         // Fetch recent messages for this user
         const records = await db(config.airtable.tableName).select({
             maxRecords: limit,
-            sort: [{ field: "Timestamp", direction: "desc" }], // Assuming you have a 'Timestamp' field or rely on Created Time
             filterByFormula: `{UserId} = '${userId}'`
         }).firstPage();
 
