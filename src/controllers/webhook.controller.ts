@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import { config } from '../config/env';
-import { sendMessage } from '../services/messenger.service';
+import { sendMessage, sendSiteVisitConfirmation } from '../services/messenger.service';
 import { generateAIResponse } from '../services/openai.service';
 import { getHistory, saveMessage } from '../services/db.service';
+import { checkAvailability, bookSiteVisit } from '../services/appointment.service';
+import { getServiceById } from '../config/services.config';
 
 const pausedUsers = new Map<string, number>(); // UserId -> Expiry Timestamp
-const PAUSE_DURATION_MS = 5 * 60 * 1000; // 5 Minutes
+const PAUSE_DURATION_MS = 30 * 60 * 1000; // 30 Minutes
 
 // GET /webhook - Verification Challenge
 export const verifyWebhook = (req: Request, res: Response) => {
@@ -30,62 +32,116 @@ export const handleWebhook = async (req: Request, res: Response) => {
     const body = req.body;
 
     if (body.object === 'page') {
-        // Iterate over each entry - there may be multiple if batched
         for (const entry of body.entry) {
-            // Iterate over each messaging event
             if (entry.messaging) {
                 for (const webhook_event of entry.messaging) {
                     console.log('📩 Received event:', JSON.stringify(webhook_event, null, 2));
 
-                    // 0. Handle ECHO (Messages sent by Page/Human)
                     if (webhook_event.message && webhook_event.message.is_echo) {
                         const metadata = webhook_event.message.metadata;
-                        // If metadata is NOT "BOT_MESSAGE", it means a human sent it via Inbox
                         if (metadata !== 'BOT_MESSAGE') {
-                            const recipientId = webhook_event.recipient.id; // In echo, recipient is the User
+                            const recipientId = webhook_event.recipient.id;
                             console.log(`👨‍💻 HUMAN ADMIN replied to ${recipientId}. Pausing AI for 30 mins.`);
-                            pausedUsers.set(recipientId, Date.now() + (30 * 60 * 1000)); // 30 Minutes
+                            pausedUsers.set(recipientId, Date.now() + PAUSE_DURATION_MS);
                         }
-                        continue; // Skip processing any echo
+                        continue;
                     }
 
                     const senderId = webhook_event.sender.id;
 
-                    // CHECK: Is user paused?
                     if (pausedUsers.has(senderId)) {
                         const expiry = pausedUsers.get(senderId) || 0;
                         if (Date.now() < expiry) {
-                            console.log(`🤐 User ${senderId} is paused (Human Active). Ignoring until ${new Date(expiry).toLocaleTimeString()}`);
+                            console.log(`🤐 User ${senderId} is paused. Ignoring until ${new Date(expiry).toLocaleTimeString()}`);
                             continue;
                         } else {
-                            console.log(`⏰ Pause expired for ${senderId}. Bot waking up.`);
                             pausedUsers.delete(senderId);
                         }
                     }
 
                     if (webhook_event.message && webhook_event.message.text) {
                         const receivedText = webhook_event.message.text;
-
-                        // 1. Fetch History
                         const history = await getHistory(senderId);
 
-                        // AI Logic
-                        console.log(`🤖 Generatng AI response for: "${receivedText}"`);
-                        const aiReply = await generateAIResponse(receivedText, history);
+                        // Map history to OpenAI format
+                        let aiHistory: any[] = history.map(msg => ({
+                            role: msg.role,
+                            content: msg.content
+                        }));
 
-                        // HANDOFF CHECK
-                        if (aiReply.includes('TRANSFER_AGENT')) {
-                            // Pause for 5 minutes from NOW
-                            pausedUsers.set(senderId, Date.now() + PAUSE_DURATION_MS);
-                            await sendMessage(senderId, "✅ Handing you over to a human agent. Please wait, they will reply shortly.");
-                            console.log(`👨‍💼 HANDOFF TRIGGERED for ${senderId}. Bot paused for 5 mins.`);
-                            // Validate if we should save the handoff message? Yes.
+                        let response = await generateAIResponse(receivedText, aiHistory);
+
+                        // TOOL EXECUTION LOOP
+                        while (response.toolCalls && response.toolCalls.length > 0) {
+                            const toolMessages: any[] = [];
+
+                            // Process each tool call
+                            for (const toolCall of response.toolCalls) {
+                                const functionName = toolCall.function.name;
+                                const args = JSON.parse(toolCall.function.arguments);
+
+                                console.log(`🛠️ Executing tool: ${functionName}`, args);
+
+                                let toolResult: any;
+                                if (functionName === 'get_available_slots') {
+                                    const service = getServiceById(args.lot_id);
+                                    if (service) {
+                                        const slots = await checkAvailability(new Date(args.date), service);
+                                        toolResult = slots.length > 0 ? slots.map(s => s.toISOString()) : "No available slots for this date.";
+                                    } else {
+                                        toolResult = "Error: Invalid lot ID.";
+                                    }
+                                } else if (functionName === 'book_site_visit') {
+                                    const service = getServiceById(args.lot_id);
+                                    if (service) {
+                                        const siteVisit = await bookSiteVisit(
+                                            {
+                                                name: args.customer_name,
+                                                phone: args.customer_phone,
+                                                facebookUserId: senderId
+                                            },
+                                            service,
+                                            new Date(args.date_time)
+                                        );
+                                        // Send confirmation message separately to ensure it is rich
+                                        await sendSiteVisitConfirmation(senderId, siteVisit);
+                                        toolResult = `Successfully booked site visit. Reference ID: ${siteVisit.id}`;
+                                    } else {
+                                        toolResult = "Error: Invalid lot ID.";
+                                    }
+                                }
+
+                                toolMessages.push({
+                                    role: 'tool',
+                                    tool_call_id: toolCall.id,
+                                    name: functionName,
+                                    content: JSON.stringify(toolResult)
+                                });
+                            }
+
+                            // Update history with assistant message containing tool calls
+                            aiHistory.push({
+                                role: 'assistant',
+                                content: response.content || "",
+                                tool_calls: response.toolCalls
+                            });
+
+                            // Add tool results to history
+                            aiHistory.push(...toolMessages);
+
+                            // Get next response from AI
+                            response = await generateAIResponse(receivedText, aiHistory);
+                        }
+
+                        const aiReply = response.content;
+
+                        if (aiReply && aiReply.includes('TRANSFER_AGENT')) {
+                            pausedUsers.set(senderId, Date.now() + (5 * 60 * 1000));
+                            await sendMessage(senderId, "✅ Handing you over to a human agent. Please wait, they will reply shortly. Sa ngayon po, maaari niyo pong i-review ang aming available lots habang naghihintay.");
                             await saveMessage(senderId, 'user', receivedText);
                             await saveMessage(senderId, 'assistant', "✅ Handing you over to a human agent...");
-                        } else {
+                        } else if (aiReply) {
                             await sendMessage(senderId, aiReply);
-
-                            // 2. Save to Airtable (Fire and forget to not block response)
                             saveMessage(senderId, 'user', receivedText);
                             saveMessage(senderId, 'assistant', aiReply);
                         }

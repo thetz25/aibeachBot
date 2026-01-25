@@ -20,7 +20,10 @@
     "body-parser": "^2.2.2",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "openai": "^6.16.0"
+    "openai": "^6.16.0",
+    "googleapis": "^144.0.0",
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
