@@ -18,16 +18,19 @@
     "@supabase/supabase-js": "^2.91.1",
     "axios": "^1.13.2",
     "body-parser": "^2.2.2",
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "openai": "^6.16.0",
     "googleapis": "^144.0.0",
-    "date-fns": "^4.1.0",
-    "date-fns-tz": "^3.2.0"
+    "openai": "^6.16.0"
   },
   "devDependencies": {
+    "@types/body-parser": "^1.19.6",
+    "@types/dotenv": "^6.1.1",
     "@types/express": "^5.0.6",
-    "@types/node": "^25.0.10",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^25.1.0",
     "nodemon": "^3.1.11",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"

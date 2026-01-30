@@ -1,111 +1,94 @@
-import { google, calendar_v3 } from 'googleapis';
-import { config } from '../config/env';
-import { Appointment, TimeSlot } from '../types/appointment.types';
-import { formatAppointmentDateTime, generateTimeSlots, isWithinBusinessHours } from '../utils/date.utils';
-import { addMinutes, startOfDay, endOfDay } from 'date-fns';
-import fs from 'fs';
-
-let calendarClient: calendar_v3.Calendar | null = null;
-
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getAppointmentsByCustomer = exports.cancelAppointment = exports.updateAppointment = exports.createAppointment = exports.getAvailableSlots = exports.initializeCalendar = void 0;
+const googleapis_1 = require("googleapis");
+const env_1 = require("../config/env");
+const date_utils_1 = require("../utils/date.utils");
+const date_fns_1 = require("date-fns");
+const fs_1 = __importDefault(require("fs"));
+let calendarClient = null;
 /**
  * Initialize Google Calendar API client
  */
-export const initializeCalendar = async (): Promise<calendar_v3.Calendar> => {
+const initializeCalendar = async () => {
     if (calendarClient) {
         return calendarClient;
     }
-
     try {
         // Load credentials from file
-        const credentials = JSON.parse(
-            fs.readFileSync(config.google.credentialsPath, 'utf-8')
-        );
-
-        const auth = new google.auth.GoogleAuth({
+        const credentials = JSON.parse(fs_1.default.readFileSync(env_1.config.google.credentialsPath, 'utf-8'));
+        const auth = new googleapis_1.google.auth.GoogleAuth({
             credentials,
             scopes: ['https://www.googleapis.com/auth/calendar']
         });
-
         const authClient = await auth.getClient();
-        calendarClient = google.calendar({ version: 'v3', auth: authClient as any });
-
+        calendarClient = googleapis_1.google.calendar({ version: 'v3', auth: authClient });
         console.log('✅ Google Calendar initialized successfully');
         return calendarClient;
-    } catch (error: any) {
+    }
+    catch (error) {
         console.error('❌ Failed to initialize Google Calendar:', error.message);
         throw new Error('Google Calendar initialization failed');
     }
 };
-
+exports.initializeCalendar = initializeCalendar;
 /**
  * Get available time slots for a specific date
  */
-export const getAvailableSlots = async (
-    date: Date,
-    duration: number
-): Promise<TimeSlot[]> => {
-    const calendar = await initializeCalendar();
-
+const getAvailableSlots = async (date, duration) => {
+    const calendar = await (0, exports.initializeCalendar)();
     // Generate all possible slots for the day
-    const allSlots = generateTimeSlots(date, duration);
-
+    const allSlots = (0, date_utils_1.generateTimeSlots)(date, duration);
     // Get existing events for the day
-    const startOfDayTime = startOfDay(date).toISOString();
-    const endOfDayTime = endOfDay(date).toISOString();
-
+    const startOfDayTime = (0, date_fns_1.startOfDay)(date).toISOString();
+    const endOfDayTime = (0, date_fns_1.endOfDay)(date).toISOString();
     try {
         const response = await calendar.events.list({
-            calendarId: config.google.calendarId,
+            calendarId: env_1.config.google.calendarId,
             timeMin: startOfDayTime,
             timeMax: endOfDayTime,
             singleEvents: true,
             orderBy: 'startTime'
         });
-
         const events = response.data.items || [];
-
         // Check which slots are available
-        const availableSlots: TimeSlot[] = allSlots.map(slotStart => {
-            const slotEnd = addMinutes(slotStart, duration);
-
+        const availableSlots = allSlots.map(slotStart => {
+            const slotEnd = (0, date_fns_1.addMinutes)(slotStart, duration);
             // Check if slot overlaps with any existing event
-            const isBooked = events.some((event: calendar_v3.Schema$Event) => {
-                if (!event.start?.dateTime || !event.end?.dateTime) return false;
-
+            const isBooked = events.some((event) => {
+                if (!event.start?.dateTime || !event.end?.dateTime)
+                    return false;
                 const eventStart = new Date(event.start.dateTime);
                 const eventEnd = new Date(event.end.dateTime);
-
                 // Check for overlap
-                return (
-                    (slotStart >= eventStart && slotStart < eventEnd) ||
+                return ((slotStart >= eventStart && slotStart < eventEnd) ||
                     (slotEnd > eventStart && slotEnd <= eventEnd) ||
-                    (slotStart <= eventStart && slotEnd >= eventEnd)
-                );
+                    (slotStart <= eventStart && slotEnd >= eventEnd));
             });
-
             return {
                 start: slotStart,
                 end: slotEnd,
                 available: !isBooked
             };
         });
-
         return availableSlots.filter(slot => slot.available);
-    } catch (error: any) {
+    }
+    catch (error) {
         console.error('❌ Failed to get available slots:', error.message);
         throw error;
     }
 };
-
+exports.getAvailableSlots = getAvailableSlots;
 /**
  * Create dental appointment in Google Calendar
  */
-export const createAppointment = async (appointment: Appointment): Promise<string> => {
-    const calendar = await initializeCalendar();
-
-    const endTime = addMinutes(appointment.dateTime, appointment.service.duration);
-
-    const event: calendar_v3.Schema$Event = {
+const createAppointment = async (appointment) => {
+    const calendar = await (0, exports.initializeCalendar)();
+    const endTime = (0, date_fns_1.addMinutes)(appointment.dateTime, appointment.service.duration);
+    const event = {
         summary: `Dental Appointment: ${appointment.service.name} - ${appointment.customer.name}`,
         description: `
 Customer: ${appointment.customer.name}
@@ -117,11 +100,11 @@ ${appointment.notes ? `\nNotes: ${appointment.notes}` : ''}
     `.trim(),
         start: {
             dateTime: appointment.dateTime.toISOString(),
-            timeZone: config.clinic.timezone
+            timeZone: env_1.config.clinic.timezone
         },
         end: {
             dateTime: endTime.toISOString(),
-            timeZone: config.clinic.timezone
+            timeZone: env_1.config.clinic.timezone
         },
         attendees: appointment.customer.email ? [
             { email: appointment.customer.email }
@@ -130,116 +113,106 @@ ${appointment.notes ? `\nNotes: ${appointment.notes}` : ''}
             useDefault: false,
             overrides: [
                 { method: 'popup', minutes: 24 * 60 }, // 1 day before
-                { method: 'popup', minutes: 60 }       // 1 hour before
+                { method: 'popup', minutes: 60 } // 1 hour before
             ]
         },
         colorId: '1' // Lavender for dental appointments
     };
-
     try {
         const response = await calendar.events.insert({
-            calendarId: config.google.calendarId,
+            calendarId: env_1.config.google.calendarId,
             requestBody: event,
             sendUpdates: 'all'
         });
-
         console.log(`✅ Calendar event created: ${response.data.id}`);
-        return response.data.id!;
-    } catch (error: any) {
+        return response.data.id;
+    }
+    catch (error) {
         console.error('❌ Failed to create calendar event:', error.message);
         throw error;
     }
 };
-
+exports.createAppointment = createAppointment;
 /**
  * Update appointment in Google Calendar
  */
-export const updateAppointment = async (
-    eventId: string,
-    updates: Partial<Appointment>
-): Promise<void> => {
-    const calendar = await initializeCalendar();
-
+const updateAppointment = async (eventId, updates) => {
+    const calendar = await (0, exports.initializeCalendar)();
     try {
         // Get existing event
         const existingEvent = await calendar.events.get({
-            calendarId: config.google.calendarId,
+            calendarId: env_1.config.google.calendarId,
             eventId: eventId
         });
-
         const event = existingEvent.data;
-
         // Update fields
         if (updates.dateTime && updates.service) {
             event.start = {
                 dateTime: updates.dateTime.toISOString(),
-                timeZone: config.clinic.timezone
+                timeZone: env_1.config.clinic.timezone
             };
             event.end = {
-                dateTime: addMinutes(updates.dateTime, updates.service.duration).toISOString(),
-                timeZone: config.clinic.timezone
+                dateTime: (0, date_fns_1.addMinutes)(updates.dateTime, updates.service.duration).toISOString(),
+                timeZone: env_1.config.clinic.timezone
             };
         }
-
         if (updates.customer || updates.service) {
             const customerName = updates.customer?.name || event.summary?.split(' - ').pop();
             const serviceName = updates.service?.name || event.summary?.split(': ').pop()?.split(' - ')[0];
             event.summary = `Dental Appointment: ${serviceName} - ${customerName}`;
         }
-
         await calendar.events.update({
-            calendarId: config.google.calendarId,
+            calendarId: env_1.config.google.calendarId,
             eventId: eventId,
             requestBody: event,
             sendUpdates: 'all'
         });
-
         console.log(`✅ Calendar event updated: ${eventId}`);
-    } catch (error: any) {
+    }
+    catch (error) {
         console.error('❌ Failed to update calendar event:', error.message);
         throw error;
     }
 };
-
+exports.updateAppointment = updateAppointment;
 /**
  * Cancel appointment in Google Calendar
  */
-export const cancelAppointment = async (eventId: string): Promise<void> => {
-    const calendar = await initializeCalendar();
-
+const cancelAppointment = async (eventId) => {
+    const calendar = await (0, exports.initializeCalendar)();
     try {
         await calendar.events.delete({
-            calendarId: config.google.calendarId,
+            calendarId: env_1.config.google.calendarId,
             eventId: eventId,
             sendUpdates: 'all'
         });
-
         console.log(`✅ Calendar event cancelled: ${eventId}`);
-    } catch (error: any) {
+    }
+    catch (error) {
         console.error('❌ Failed to cancel calendar event:', error.message);
         throw error;
     }
 };
-
+exports.cancelAppointment = cancelAppointment;
 /**
  * Get appointments for a specific customer by phone number
  */
-export const getAppointmentsByCustomer = async (phone: string): Promise<calendar_v3.Schema$Event[]> => {
-    const calendar = await initializeCalendar();
-
+const getAppointmentsByCustomer = async (phone) => {
+    const calendar = await (0, exports.initializeCalendar)();
     try {
         const response = await calendar.events.list({
-            calendarId: config.google.calendarId,
+            calendarId: env_1.config.google.calendarId,
             timeMin: new Date().toISOString(),
             maxResults: 10,
             singleEvents: true,
             orderBy: 'startTime',
             q: phone // Search for phone number in event description
         });
-
         return response.data.items || [];
-    } catch (error: any) {
+    }
+    catch (error) {
         console.error('❌ Failed to get customer appointments:', error.message);
         return [];
     }
 };
+exports.getAppointmentsByCustomer = getAppointmentsByCustomer;

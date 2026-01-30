@@ -115,7 +115,7 @@ export const rescheduleAppointment = async (
 export const getCustomerAppointments = async (phone: string): Promise<any[]> => {
     try {
         const appointments = await sheetsService.getAppointmentHistory(phone);
-        return appointments.filter(apt => apt.status === AppointmentStatus.CONFIRMED);
+        return appointments.filter((apt: any) => apt.status === AppointmentStatus.CONFIRMED);
     } catch (error) {
         console.error('Failed to get customer appointments:', error);
         return [];

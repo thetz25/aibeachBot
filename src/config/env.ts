@@ -29,6 +29,12 @@ export const config = {
 
     openai: {
         apiKey: process.env.OPENAI_API_KEY
+    },
+
+    supabase: {
+        url: process.env.SUPABASE_URL,
+        key: process.env.SUPABASE_KEY,
+        tableName: process.env.SUPABASE_TABLE_NAME
     }
 };
 

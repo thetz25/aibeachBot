@@ -1,11 +1,15 @@
-import { google, sheets_v4 } from 'googleapis';
-import { config } from '../config/env';
-import { Appointment, AppointmentStatus } from '../types/appointment.types';
-import { formatAppointmentDate, formatAppointmentTime } from '../utils/date.utils';
-import fs from 'fs';
-
-let sheetsClient: sheets_v4.Sheets | null = null;
-
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getUpcomingAppointments = exports.generateDailyReport = exports.getAppointmentHistory = exports.updateAppointmentStatus = exports.saveAppointment = exports.initializeSheets = void 0;
+const googleapis_1 = require("googleapis");
+const env_1 = require("../config/env");
+const appointment_types_1 = require("../types/appointment.types");
+const date_utils_1 = require("../utils/date.utils");
+const fs_1 = __importDefault(require("fs"));
+let sheetsClient = null;
 const SHEET_NAME = 'SiteVisits';
 const HEADER_ROW = [
     'Visit ID',
@@ -22,102 +26,87 @@ const HEADER_ROW = [
     'Notes',
     'Price'
 ];
-
 /**
  * Initialize Google Sheets API client
  */
-export const initializeSheets = async (): Promise<sheets_v4.Sheets> => {
+const initializeSheets = async () => {
     if (sheetsClient) {
         return sheetsClient;
     }
-
     try {
-        const credentials = JSON.parse(
-            fs.readFileSync(config.google.credentialsPath, 'utf-8')
-        );
-
-        const auth = new google.auth.GoogleAuth({
+        const credentials = JSON.parse(fs_1.default.readFileSync(env_1.config.google.credentialsPath, 'utf-8'));
+        const auth = new googleapis_1.google.auth.GoogleAuth({
             credentials,
             scopes: ['https://www.googleapis.com/auth/spreadsheets']
         });
-
         const authClient = await auth.getClient();
-        sheetsClient = google.sheets({ version: 'v4', auth: authClient as any });
-
+        sheetsClient = googleapis_1.google.sheets({ version: 'v4', auth: authClient });
         // Ensure sheet exists with headers
         await ensureSheetSetup();
-
         console.log('✅ Google Sheets initialized successfully');
         return sheetsClient;
-    } catch (error: any) {
+    }
+    catch (error) {
         console.error('❌ Failed to initialize Google Sheets:', error.message);
         throw new Error('Google Sheets initialization failed');
     }
 };
-
+exports.initializeSheets = initializeSheets;
 /**
  * Ensure the spreadsheet has the correct structure
  */
-const ensureSheetSetup = async (): Promise<void> => {
-    if (!sheetsClient || !config.google.sheetId) return;
-
+const ensureSheetSetup = async () => {
+    if (!sheetsClient || !env_1.config.google.sheetId)
+        return;
     try {
         // Check if sheet exists
         const spreadsheet = await sheetsClient.spreadsheets.get({
-            spreadsheetId: config.google.sheetId
+            spreadsheetId: env_1.config.google.sheetId
         });
-
-        const sheet = spreadsheet.data.sheets?.find(
-            (s: sheets_v4.Schema$Sheet) => s.properties?.title === SHEET_NAME
-        );
-
+        const sheet = spreadsheet.data.sheets?.find((s) => s.properties?.title === SHEET_NAME);
         if (!sheet) {
             // Create the sheet
             await sheetsClient.spreadsheets.batchUpdate({
-                spreadsheetId: config.google.sheetId,
+                spreadsheetId: env_1.config.google.sheetId,
                 requestBody: {
                     requests: [{
-                        addSheet: {
-                            properties: {
-                                title: SHEET_NAME
+                            addSheet: {
+                                properties: {
+                                    title: SHEET_NAME
+                                }
                             }
-                        }
-                    }]
+                        }]
                 }
             });
-
             // Add headers
             await sheetsClient.spreadsheets.values.update({
-                spreadsheetId: config.google.sheetId,
+                spreadsheetId: env_1.config.google.sheetId,
                 range: `${SHEET_NAME}!A1:M1`,
                 valueInputOption: 'RAW',
                 requestBody: {
                     values: [HEADER_ROW]
                 }
             });
-
             console.log('✅ Created SiteVisits sheet with headers');
         }
-    } catch (error: any) {
+    }
+    catch (error) {
         console.error('⚠️ Failed to setup sheet:', error.message);
     }
 };
-
 /**
  * Save appointment to Google Sheets
  */
-export const saveAppointment = async (appointment: Appointment): Promise<void> => {
-    const sheets = await initializeSheets();
-
-    if (!config.google.sheetId) {
+const saveAppointment = async (appointment) => {
+    const sheets = await (0, exports.initializeSheets)();
+    if (!env_1.config.google.sheetId) {
         console.warn('⚠️ No Google Sheet ID configured, skipping save');
         return;
     }
-
     const row = [
         appointment.id,
-        formatAppointmentDate(appointment.dateTime),
-        formatAppointmentTime(appointment.dateTime),
+        (0, date_utils_1.formatAppointmentDate)(appointment.dateTime),
+        (0, date_utils_1.formatAppointmentTime)(appointment.dateTime),
         appointment.service.name,
         appointment.customer.name,
         appointment.customer.phone,
@@ -129,86 +118,74 @@ export const saveAppointment = async (appointment: Appointment): Promise<void> =
         appointment.notes || '',
         appointment.service.price
     ];
-
     try {
         await sheets.spreadsheets.values.append({
-            spreadsheetId: config.google.sheetId,
+            spreadsheetId: env_1.config.google.sheetId,
             range: `${SHEET_NAME}!A:M`,
             valueInputOption: 'RAW',
             requestBody: {
                 values: [row]
             }
         });
-
         console.log(`✅ Appointment saved to sheet: ${appointment.id}`);
-    } catch (error: any) {
+    }
+    catch (error) {
         console.error('❌ Failed to save appointment to sheet:', error.message);
         throw error;
     }
 };
-
+exports.saveAppointment = saveAppointment;
 /**
  * Update appointment status in Google Sheets
  */
-export const updateAppointmentStatus = async (
-    appointmentId: string,
-    status: AppointmentStatus
-): Promise<void> => {
-    const sheets = await initializeSheets();
-
-    if (!config.google.sheetId) return;
-
+const updateAppointmentStatus = async (appointmentId, status) => {
+    const sheets = await (0, exports.initializeSheets)();
+    if (!env_1.config.google.sheetId)
+        return;
     try {
         // Find the row with this ID
         const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: config.google.sheetId,
+            spreadsheetId: env_1.config.google.sheetId,
             range: `${SHEET_NAME}!A:A`
         });
-
         const rows = response.data.values || [];
-        const rowIndex = rows.findIndex((row: any[]) => row[0] === appointmentId);
-
+        const rowIndex = rows.findIndex((row) => row[0] === appointmentId);
         if (rowIndex === -1) {
             console.warn(`⚠️ Appointment ${appointmentId} not found in sheet`);
             return;
         }
-
         // Update status column (H)
         await sheets.spreadsheets.values.update({
-            spreadsheetId: config.google.sheetId,
+            spreadsheetId: env_1.config.google.sheetId,
             range: `${SHEET_NAME}!H${rowIndex + 1}`,
             valueInputOption: 'RAW',
             requestBody: {
                 values: [[status]]
             }
         });
-
         console.log(`✅ Updated appointment status: ${appointmentId} -> ${status}`);
-    } catch (error: any) {
+    }
+    catch (error) {
         console.error('❌ Failed to update appointment status:', error.message);
     }
 };
-
+exports.updateAppointmentStatus = updateAppointmentStatus;
 /**
  * Get appointment history for a customer
  */
-export const getAppointmentHistory = async (phone: string): Promise<any[]> => {
-    const sheets = await initializeSheets();
-
-    if (!config.google.sheetId) return [];
-
+const getAppointmentHistory = async (phone) => {
+    const sheets = await (0, exports.initializeSheets)();
+    if (!env_1.config.google.sheetId)
+        return [];
     try {
         const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: config.google.sheetId,
+            spreadsheetId: env_1.config.google.sheetId,
             range: `${SHEET_NAME}!A:M`
         });
-
         const rows = response.data.values || [];
-
         // Skip header row and filter by phone number
-        const appointments = rows.slice(1).filter((row: any[]) => row[5] === phone);
-
-        return appointments.map((row: any[]) => ({
+        const appointments = rows.slice(1).filter((row) => row[5] === phone);
+        return appointments.map((row) => ({
             id: row[0],
             date: row[1],
             time: row[2],
@@ -220,33 +197,30 @@ export const getAppointmentHistory = async (phone: string): Promise<any[]> => {
             createdAt: row[8],
             calendarEventId: row[10]
         }));
-    } catch (error: any) {
+    }
+    catch (error) {
         console.error('❌ Failed to get appointment history:', error.message);
         return [];
     }
 };
-
+exports.getAppointmentHistory = getAppointmentHistory;
 /**
  * Generate daily report of appointments
  */
-export const generateDailyReport = async (date: Date): Promise<any[]> => {
-    const sheets = await initializeSheets();
-
-    if (!config.google.sheetId) return [];
-
+const generateDailyReport = async (date) => {
+    const sheets = await (0, exports.initializeSheets)();
+    if (!env_1.config.google.sheetId)
+        return [];
     try {
         const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: config.google.sheetId,
+            spreadsheetId: env_1.config.google.sheetId,
             range: `${SHEET_NAME}!A:M`
         });
-
         const rows = response.data.values || [];
-        const targetDate = formatAppointmentDate(date);
-
+        const targetDate = (0, date_utils_1.formatAppointmentDate)(date);
         // Filter for the target date
-        const dailyAppointments = rows.slice(1).filter((row: any[]) => row[1] === targetDate);
-
-        return dailyAppointments.map((row: any[]) => ({
+        const dailyAppointments = rows.slice(1).filter((row) => row[1] === targetDate);
+        return dailyAppointments.map((row) => ({
             id: row[0],
             date: row[1],
             time: row[2],
@@ -256,36 +230,33 @@ export const generateDailyReport = async (date: Date): Promise<any[]> => {
             status: row[7],
             price: row[12]
         }));
-    } catch (error: any) {
+    }
+    catch (error) {
         console.error('❌ Failed to generate daily report:', error.message);
         return [];
     }
 };
-
+exports.generateDailyReport = generateDailyReport;
 /**
  * Get all upcoming appointments
  */
-export const getUpcomingAppointments = async (): Promise<any[]> => {
-    const sheets = await initializeSheets();
-
-    if (!config.google.sheetId) return [];
-
+const getUpcomingAppointments = async () => {
+    const sheets = await (0, exports.initializeSheets)();
+    if (!env_1.config.google.sheetId)
+        return [];
     try {
         const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: config.google.sheetId,
+            spreadsheetId: env_1.config.google.sheetId,
             range: `${SHEET_NAME}!A:M`
         });
-
         const rows = response.data.values || [];
         const today = new Date();
-
         // Filter future appointments with CONFIRMED status
-        const upcoming = rows.slice(1).filter((row: any[]) => {
+        const upcoming = rows.slice(1).filter((row) => {
             const visitDate = new Date(row[1]);
-            return visitDate >= today && row[7] === AppointmentStatus.CONFIRMED;
+            return visitDate >= today && row[7] === appointment_types_1.AppointmentStatus.CONFIRMED;
         });
-
-        return upcoming.map((row: any[]) => ({
+        return upcoming.map((row) => ({
             id: row[0],
             date: row[1],
             time: row[2],
@@ -294,8 +265,10 @@ export const getUpcomingAppointments = async (): Promise<any[]> => {
             phone: row[5],
             status: row[7]
         }));
-    } catch (error: any) {
+    }
+    catch (error) {
         console.error('❌ Failed to get upcoming appointments:', error.message);
         return [];
     }
 };
+exports.getUpcomingAppointments = getUpcomingAppointments;
