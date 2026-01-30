@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
 import { config } from '../config/env';
-import { sendMessage, sendAppointmentConfirmation } from '../services/messenger.service';
+import { getServiceById, DENTAL_SERVICES } from '../config/services.config';
+import { sendMessage, sendAppointmentConfirmation, sendServiceGallery, sendYesNoReplies } from '../services/messenger.service';
 import { generateAIResponse } from '../services/openai.service';
 import { getHistory, saveMessage } from '../services/db.service';
-import { checkAvailability, bookAppointment } from '../services/appointment.service';
-import { getServiceById } from '../config/services.config';
+import { checkAvailability, bookAppointment, cancelAppointmentById, rescheduleAppointmentById } from '../services/appointment.service';
 
 const pausedUsers = new Map<string, number>(); // UserId -> Expiry Timestamp
 const PAUSE_DURATION_MS = 30 * 60 * 1000; // 30 Minutes
@@ -64,7 +64,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
                         const history = await getHistory(senderId);
 
                         // Map history to OpenAI format
-                        let aiHistory: any[] = history.map(msg => ({
+                        let aiHistory: any[] = history.map((msg: any) => ({
                             role: msg.role,
                             content: msg.content
                         }));
@@ -87,7 +87,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
                                     const service = getServiceById(args.service_id);
                                     if (service) {
                                         const slots = await checkAvailability(new Date(args.date), service);
-                                        toolResult = slots.length > 0 ? slots.map(s => s.toISOString()) : "No available slots for this date.";
+                                        toolResult = slots.length > 0 ? slots.map((s: Date) => s.toISOString()) : "No available slots for this date.";
                                     } else {
                                         toolResult = "Error: Invalid service ID.";
                                     }
@@ -109,6 +109,18 @@ export const handleWebhook = async (req: Request, res: Response) => {
                                     } else {
                                         toolResult = "Error: Invalid service ID.";
                                     }
+                                } else if (functionName === 'show_services') {
+                                    await sendServiceGallery(senderId, DENTAL_SERVICES);
+                                    toolResult = "Service gallery displayed to user.";
+                                } else if (functionName === 'cancel_appointment') {
+                                    await cancelAppointmentById(args.appointment_id);
+                                    toolResult = `Appointment ${args.appointment_id} has been cancelled.`;
+                                } else if (functionName === 'reschedule_appointment') {
+                                    await rescheduleAppointmentById(args.appointment_id, new Date(args.date_time));
+                                    toolResult = `Appointment ${args.appointment_id} has been rescheduled to ${new Date(args.date_time).toLocaleString()}.`;
+                                } else if (functionName === 'send_quick_replies') {
+                                    await sendYesNoReplies(senderId, args.text);
+                                    toolResult = "Quick replies sent to user.";
                                 }
 
                                 toolMessages.push({

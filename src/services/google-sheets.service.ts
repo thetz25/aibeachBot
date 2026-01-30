@@ -227,6 +227,45 @@ export const getAppointmentHistory = async (phone: string): Promise<any[]> => {
 };
 
 /**
+ * Get appointment by ID
+ */
+export const getAppointmentById = async (appointmentId: string): Promise<any | null> => {
+    const sheets = await initializeSheets();
+    if (!config.google.sheetId) return null;
+
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: config.google.sheetId,
+            range: `${SHEET_NAME}!A:M`
+        });
+
+        const rows = response.data.values || [];
+        const row = rows.find(r => r[0] === appointmentId);
+
+        if (!row) return null;
+
+        return {
+            id: row[0],
+            date: row[1],
+            time: row[2],
+            serviceName: row[3],
+            customerName: row[4],
+            phone: row[5],
+            email: row[6],
+            status: row[7],
+            createdAt: row[8],
+            facebookUserId: row[9],
+            calendarEventId: row[10],
+            notes: row[11],
+            price: row[12]
+        };
+    } catch (error: any) {
+        console.error('❌ Failed to get appointment by ID:', error.message);
+        return null;
+    }
+};
+
+/**
  * Generate daily report of appointments
  */
 export const generateDailyReport = async (date: Date): Promise<any[]> => {

@@ -58,6 +58,68 @@ export const tools: any[] = [
                 required: ["service_id", "date_time", "customer_name", "customer_phone"]
             }
         }
+    },
+    {
+        type: "function",
+        function: {
+            name: "show_services",
+            description: "Show a visual gallery of all available dental services."
+        }
+    },
+    {
+        type: "function",
+        function: {
+            name: "cancel_appointment",
+            description: "Cancel an existing dental appointment.",
+            parameters: {
+                type: "object",
+                properties: {
+                    appointment_id: {
+                        type: "string",
+                        description: "The reference ID of the appointment to cancel."
+                    }
+                },
+                required: ["appointment_id"]
+            }
+        }
+    },
+    {
+        type: "function",
+        function: {
+            name: "reschedule_appointment",
+            description: "Reschedule an existing dental appointment to a new date and time.",
+            parameters: {
+                type: "object",
+                properties: {
+                    appointment_id: {
+                        type: "string",
+                        description: "The reference ID of the appointment to reschedule."
+                    },
+                    date_time: {
+                        type: "string",
+                        description: "The new ISO string of the chosen date and time."
+                    }
+                },
+                required: ["appointment_id", "date_time"]
+            }
+        }
+    },
+    {
+        type: "function",
+        function: {
+            name: "send_quick_replies",
+            description: "Sends quick replies to the user.",
+            parameters: {
+                type: "object",
+                properties: {
+                    text: {
+                        type: "string",
+                        description: "The text message to accompany the quick replies."
+                    }
+                },
+                required: ["text"]
+            }
+        }
     }
 ];
 

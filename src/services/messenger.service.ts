@@ -154,6 +154,41 @@ _Type "cancel" to cancel an appointment_
 };
 
 /**
+ * Send dental service gallery using generic template
+ */
+export const sendServiceGallery = async (recipientId: string, services: any[]) => {
+    const elements = services.map(service => ({
+        title: service.name,
+        subtitle: `${service.description}\nPrice: ₱${service.price}`,
+        image_url: `https://placehold.co/600x315?text=${encodeURIComponent(service.name)}`, // Placeholder for now
+        buttons: [
+            {
+                type: 'postback',
+                title: 'Book This',
+                payload: `BOOK_SERVICE_${service.id}`
+            },
+            {
+                type: 'web_url',
+                url: 'https://example.com/services', // Example link
+                title: 'Learn More'
+            }
+        ]
+    }));
+
+    await sendGenericTemplate(recipientId, elements);
+};
+
+/**
+ * Helper to send a yes/no quick reply
+ */
+export const sendYesNoReplies = async (recipientId: string, text: string) => {
+    return sendQuickReplies(recipientId, text, [
+        { content_type: 'text', title: 'Yes', payload: 'YES' },
+        { content_type: 'text', title: 'No', payload: 'NO' }
+    ]);
+};
+
+/**
  * Send typing indicator
  */
 export const sendTypingIndicator = async (recipientId: string, on: boolean = true) => {

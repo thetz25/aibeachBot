@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.markNoShow = exports.completeAppointment = exports.getCustomerAppointments = exports.rescheduleAppointment = exports.cancelAppointment = exports.bookAppointment = exports.checkAvailability = exports.getDentalServices = void 0;
+exports.rescheduleAppointmentById = exports.cancelAppointmentById = exports.markNoShow = exports.completeAppointment = exports.getCustomerAppointments = exports.rescheduleAppointment = exports.cancelAppointment = exports.bookAppointment = exports.checkAvailability = exports.getDentalServices = void 0;
 const appointment_types_1 = require("../types/appointment.types");
 const services_config_1 = require("../config/services.config");
 const date_utils_1 = require("../utils/date.utils");
@@ -166,3 +166,26 @@ const markNoShow = async (appointmentId) => {
     }
 };
 exports.markNoShow = markNoShow;
+/**
+ * Cancel appointment by ID
+ */
+const cancelAppointmentById = async (appointmentId) => {
+    const appointment = await sheetsService.getAppointmentById(appointmentId);
+    if (!appointment) {
+        throw new Error(`Appointment ${appointmentId} not found.`);
+    }
+    await (0, exports.cancelAppointment)(appointmentId, appointment.calendarEventId);
+};
+exports.cancelAppointmentById = cancelAppointmentById;
+/**
+ * Reschedule appointment by ID
+ */
+const rescheduleAppointmentById = async (appointmentId, newDateTime) => {
+    const appointment = await sheetsService.getAppointmentById(appointmentId);
+    if (!appointment) {
+        throw new Error(`Appointment ${appointmentId} not found.`);
+    }
+    const service = (0, services_config_1.getServiceById)(appointment.serviceName) || services_config_1.DENTAL_SERVICES[0]; // Fallback if name mapping fails
+    await (0, exports.rescheduleAppointment)(appointmentId, appointment.calendarEventId, newDateTime, service);
+};
+exports.rescheduleAppointmentById = rescheduleAppointmentById;

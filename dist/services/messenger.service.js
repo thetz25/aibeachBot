@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendTypingIndicator = exports.sendAppointmentConfirmation = exports.sendGenericTemplate = exports.sendButtonTemplate = exports.sendQuickReplies = exports.sendMessage = void 0;
+exports.sendTypingIndicator = exports.sendServiceGallery = exports.sendAppointmentConfirmation = exports.sendGenericTemplate = exports.sendButtonTemplate = exports.sendQuickReplies = exports.sendMessage = void 0;
 const axios_1 = __importDefault(require("axios"));
 const env_1 = require("../config/env");
 const date_utils_1 = require("../utils/date.utils");
@@ -136,6 +136,30 @@ _Type "cancel" to cancel an appointment_
     await (0, exports.sendMessage)(recipientId, message);
 };
 exports.sendAppointmentConfirmation = sendAppointmentConfirmation;
+/**
+ * Send dental service gallery using generic template
+ */
+const sendServiceGallery = async (recipientId, services) => {
+    const elements = services.map(service => ({
+        title: service.name,
+        subtitle: `${service.description}\nPrice: ₱${service.price}`,
+        image_url: `https://placehold.co/600x315?text=${encodeURIComponent(service.name)}`, // Placeholder for now
+        buttons: [
+            {
+                type: 'postback',
+                title: 'Book This',
+                payload: `BOOK_SERVICE_${service.id}`
+            },
+            {
+                type: 'web_url',
+                url: 'https://example.com/services', // Example link
+                title: 'Learn More'
+            }
+        ]
+    }));
+    await (0, exports.sendGenericTemplate)(recipientId, elements);
+};
+exports.sendServiceGallery = sendServiceGallery;
 /**
  * Send typing indicator
  */

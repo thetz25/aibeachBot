@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUpcomingAppointments = exports.generateDailyReport = exports.getAppointmentHistory = exports.updateAppointmentStatus = exports.saveAppointment = exports.initializeSheets = void 0;
+exports.getUpcomingAppointments = exports.generateDailyReport = exports.getAppointmentById = exports.getAppointmentHistory = exports.updateAppointmentStatus = exports.saveAppointment = exports.initializeSheets = void 0;
 const googleapis_1 = require("googleapis");
 const env_1 = require("../config/env");
 const appointment_types_1 = require("../types/appointment.types");
@@ -204,6 +204,44 @@ const getAppointmentHistory = async (phone) => {
     }
 };
 exports.getAppointmentHistory = getAppointmentHistory;
+/**
+ * Get appointment by ID
+ */
+const getAppointmentById = async (appointmentId) => {
+    const sheets = await (0, exports.initializeSheets)();
+    if (!env_1.config.google.sheetId)
+        return null;
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: env_1.config.google.sheetId,
+            range: `${SHEET_NAME}!A:M`
+        });
+        const rows = response.data.values || [];
+        const row = rows.find(r => r[0] === appointmentId);
+        if (!row)
+            return null;
+        return {
+            id: row[0],
+            date: row[1],
+            time: row[2],
+            serviceName: row[3],
+            customerName: row[4],
+            phone: row[5],
+            email: row[6],
+            status: row[7],
+            createdAt: row[8],
+            facebookUserId: row[9],
+            calendarEventId: row[10],
+            notes: row[11],
+            price: row[12]
+        };
+    }
+    catch (error) {
+        console.error('❌ Failed to get appointment by ID:', error.message);
+        return null;
+    }
+};
+exports.getAppointmentById = getAppointmentById;
 /**
  * Generate daily report of appointments
  */

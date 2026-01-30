@@ -2,11 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleWebhook = exports.verifyWebhook = void 0;
 const env_1 = require("../config/env");
+const services_config_1 = require("../config/services.config");
 const messenger_service_1 = require("../services/messenger.service");
 const openai_service_1 = require("../services/openai.service");
 const db_service_1 = require("../services/db.service");
 const appointment_service_1 = require("../services/appointment.service");
-const services_config_1 = require("../config/services.config");
 const pausedUsers = new Map(); // UserId -> Expiry Timestamp
 const PAUSE_DURATION_MS = 30 * 60 * 1000; // 30 Minutes
 // GET /webhook - Verification Challenge
@@ -60,7 +60,7 @@ const handleWebhook = async (req, res) => {
                         const receivedText = webhook_event.message.text;
                         const history = await (0, db_service_1.getHistory)(senderId);
                         // Map history to OpenAI format
-                        let aiHistory = history.map(msg => ({
+                        let aiHistory = history.map((msg) => ({
                             role: msg.role,
                             content: msg.content
                         }));
@@ -78,7 +78,7 @@ const handleWebhook = async (req, res) => {
                                     const service = (0, services_config_1.getServiceById)(args.service_id);
                                     if (service) {
                                         const slots = await (0, appointment_service_1.checkAvailability)(new Date(args.date), service);
-                                        toolResult = slots.length > 0 ? slots.map(s => s.toISOString()) : "No available slots for this date.";
+                                        toolResult = slots.length > 0 ? slots.map((s) => s.toISOString()) : "No available slots for this date.";
                                     }
                                     else {
                                         toolResult = "Error: Invalid service ID.";
@@ -99,6 +99,18 @@ const handleWebhook = async (req, res) => {
                                     else {
                                         toolResult = "Error: Invalid service ID.";
                                     }
+                                }
+                                else if (functionName === 'show_services') {
+                                    await (0, messenger_service_1.sendServiceGallery)(senderId, services_config_1.DENTAL_SERVICES);
+                                    toolResult = "Service gallery displayed to user.";
+                                }
+                                else if (functionName === 'cancel_appointment') {
+                                    await (0, appointment_service_1.cancelAppointmentById)(args.appointment_id);
+                                    toolResult = `Appointment ${args.appointment_id} has been cancelled.`;
+                                }
+                                else if (functionName === 'reschedule_appointment') {
+                                    await (0, appointment_service_1.rescheduleAppointmentById)(args.appointment_id, new Date(args.date_time));
+                                    toolResult = `Appointment ${args.appointment_id} has been rescheduled to ${new Date(args.date_time).toLocaleString()}.`;
                                 }
                                 toolMessages.push({
                                     role: 'tool',

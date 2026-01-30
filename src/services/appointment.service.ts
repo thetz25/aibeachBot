@@ -145,3 +145,37 @@ export const markNoShow = async (appointmentId: string): Promise<void> => {
         console.error('❌ Failed to mark no-show:', error.message);
     }
 };
+
+/**
+ * Cancel appointment by ID
+ */
+export const cancelAppointmentById = async (appointmentId: string): Promise<void> => {
+    const appointment = await sheetsService.getAppointmentById(appointmentId);
+    if (!appointment) {
+        throw new Error(`Appointment ${appointmentId} not found.`);
+    }
+
+    await cancelAppointment(appointmentId, appointment.calendarEventId);
+};
+
+/**
+ * Reschedule appointment by ID
+ */
+export const rescheduleAppointmentById = async (
+    appointmentId: string,
+    newDateTime: Date
+): Promise<void> => {
+    const appointment = await sheetsService.getAppointmentById(appointmentId);
+    if (!appointment) {
+        throw new Error(`Appointment ${appointmentId} not found.`);
+    }
+
+    const service = getServiceById(appointment.serviceName) || DENTAL_SERVICES[0]; // Fallback if name mapping fails
+
+    await rescheduleAppointment(
+        appointmentId,
+        appointment.calendarEventId,
+        newDateTime,
+        service
+    );
+};
