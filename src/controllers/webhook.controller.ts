@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import { config } from '../config/env';
-import { sendMessage, sendSiteVisitConfirmation } from '../services/messenger.service';
+import { sendMessage, sendAppointmentConfirmation } from '../services/messenger.service';
 import { generateAIResponse } from '../services/openai.service';
 import { getHistory, saveMessage } from '../services/db.service';
-import { checkAvailability, bookSiteVisit } from '../services/appointment.service';
+import { checkAvailability, bookAppointment } from '../services/appointment.service';
 import { getServiceById } from '../config/services.config';
 
 const pausedUsers = new Map<string, number>(); // UserId -> Expiry Timestamp
@@ -84,17 +84,17 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
                                 let toolResult: any;
                                 if (functionName === 'get_available_slots') {
-                                    const service = getServiceById(args.lot_id);
+                                    const service = getServiceById(args.service_id);
                                     if (service) {
                                         const slots = await checkAvailability(new Date(args.date), service);
                                         toolResult = slots.length > 0 ? slots.map(s => s.toISOString()) : "No available slots for this date.";
                                     } else {
-                                        toolResult = "Error: Invalid lot ID.";
+                                        toolResult = "Error: Invalid service ID.";
                                     }
-                                } else if (functionName === 'book_site_visit') {
-                                    const service = getServiceById(args.lot_id);
+                                } else if (functionName === 'book_appointment') {
+                                    const service = getServiceById(args.service_id);
                                     if (service) {
-                                        const siteVisit = await bookSiteVisit(
+                                        const appointment = await bookAppointment(
                                             {
                                                 name: args.customer_name,
                                                 phone: args.customer_phone,
@@ -104,10 +104,10 @@ export const handleWebhook = async (req: Request, res: Response) => {
                                             new Date(args.date_time)
                                         );
                                         // Send confirmation message separately to ensure it is rich
-                                        await sendSiteVisitConfirmation(senderId, siteVisit);
-                                        toolResult = `Successfully booked site visit. Reference ID: ${siteVisit.id}`;
+                                        await sendAppointmentConfirmation(senderId, appointment);
+                                        toolResult = `Successfully booked appointment. Reference ID: ${appointment.id}`;
                                     } else {
-                                        toolResult = "Error: Invalid lot ID.";
+                                        toolResult = "Error: Invalid service ID.";
                                     }
                                 }
 
@@ -137,9 +137,9 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
                         if (aiReply && aiReply.includes('TRANSFER_AGENT')) {
                             pausedUsers.set(senderId, Date.now() + (5 * 60 * 1000));
-                            await sendMessage(senderId, "✅ Handing you over to a human agent. Please wait, they will reply shortly. Sa ngayon po, maaari niyo pong i-review ang aming available lots habang naghihintay.");
+                            await sendMessage(senderId, "✅ Handing you over to our customer support. Please wait, they will reply shortly. Sa ngayon po, maaari niyo pong i-review ang aming services habang naghihintay.");
                             await saveMessage(senderId, 'user', receivedText);
-                            await saveMessage(senderId, 'assistant', "✅ Handing you over to a human agent...");
+                            await saveMessage(senderId, 'assistant', "✅ Handing you over to customer support...");
                         } else if (aiReply) {
                             await sendMessage(senderId, aiReply);
                             saveMessage(senderId, 'user', receivedText);

@@ -1,13 +1,13 @@
-import { SiteVisit, SiteVisitStatus, LotService, CustomerInfo } from '../types/appointment.types';
+import { Appointment, AppointmentStatus, DentalService, CustomerInfo } from '../types/appointment.types';
 import { DENTAL_SERVICES, getServiceById } from '../config/services.config';
 import { generateAppointmentId } from '../utils/date.utils';
 import * as calendarService from './google-calendar.service';
 import * as sheetsService from './google-sheets.service';
 
 /**
- * Get list of all lot services
+ * Get list of all dental services
  */
-export const getLotServices = (): LotService[] => {
+export const getDentalServices = (): DentalService[] => {
     return DENTAL_SERVICES;
 };
 
@@ -16,7 +16,7 @@ export const getLotServices = (): LotService[] => {
  */
 export const checkAvailability = async (
     date: Date,
-    service: LotService
+    service: DentalService
 ): Promise<Date[]> => {
     try {
         const availableSlots = await calendarService.getAvailableSlots(date, service.duration);
@@ -28,119 +28,119 @@ export const checkAvailability = async (
 };
 
 /**
- * Book a new site visit
+ * Book a new dental appointment
  */
-export const bookSiteVisit = async (
+export const bookAppointment = async (
     customerInfo: CustomerInfo,
-    service: LotService,
+    service: DentalService,
     dateTime: Date,
     notes?: string
-): Promise<SiteVisit> => {
-    // Create site visit object
-    const siteVisit: SiteVisit = {
+): Promise<Appointment> => {
+    // Create appointment object
+    const appointment: Appointment = {
         id: generateAppointmentId(dateTime),
         service,
         dateTime,
         customer: customerInfo,
-        status: SiteVisitStatus.CONFIRMED,
+        status: AppointmentStatus.CONFIRMED,
         notes,
         createdAt: new Date()
     };
 
     try {
         // Create calendar event
-        const calendarEventId = await calendarService.createSiteVisit(siteVisit);
-        siteVisit.calendarEventId = calendarEventId;
+        const calendarEventId = await calendarService.createAppointment(appointment);
+        appointment.calendarEventId = calendarEventId;
 
         // Save to Google Sheets
-        await sheetsService.saveSiteVisit(siteVisit);
+        await sheetsService.saveAppointment(appointment);
 
-        console.log(`✅ Site visit booked successfully: ${siteVisit.id}`);
-        return siteVisit;
+        console.log(`✅ Appointment booked successfully: ${appointment.id}`);
+        return appointment;
     } catch (error: any) {
-        console.error('❌ Failed to book site visit:', error.message);
-        throw new Error('Failed to book site visit. Please try again.');
+        console.error('❌ Failed to book appointment:', error.message);
+        throw new Error('Failed to book appointment. Please try again.');
     }
 };
 
 /**
- * Cancel a site visit
+ * Cancel an appointment
  */
-export const cancelSiteVisit = async (
-    siteVisitId: string,
+export const cancelAppointment = async (
+    appointmentId: string,
     calendarEventId?: string
 ): Promise<void> => {
     try {
         // Cancel in calendar
         if (calendarEventId) {
-            await calendarService.cancelSiteVisit(calendarEventId);
+            await calendarService.cancelAppointment(calendarEventId);
         }
 
         // Update status in sheets
-        await sheetsService.updateSiteVisitStatus(siteVisitId, SiteVisitStatus.CANCELLED);
+        await sheetsService.updateAppointmentStatus(appointmentId, AppointmentStatus.CANCELLED);
 
-        console.log(`✅ Site visit cancelled: ${siteVisitId}`);
+        console.log(`✅ Appointment cancelled: ${appointmentId}`);
     } catch (error: any) {
-        console.error('❌ Failed to cancel site visit:', error.message);
-        throw new Error('Failed to cancel site visit. Please try again.');
+        console.error('❌ Failed to cancel appointment:', error.message);
+        throw new Error('Failed to cancel appointment. Please try again.');
     }
 };
 
 /**
- * Reschedule a site visit
+ * Reschedule an appointment
  */
-export const rescheduleSiteVisit = async (
-    siteVisitId: string,
+export const rescheduleAppointment = async (
+    appointmentId: string,
     calendarEventId: string,
     newDateTime: Date,
-    service: LotService
+    service: DentalService
 ): Promise<void> => {
     try {
         // Update calendar event
-        await calendarService.updateSiteVisit(calendarEventId, {
+        await calendarService.updateAppointment(calendarEventId, {
             dateTime: newDateTime,
             service
         } as any);
 
-        console.log(`✅ Site visit rescheduled: ${siteVisitId}`);
+        console.log(`✅ Appointment rescheduled: ${appointmentId}`);
     } catch (error: any) {
-        console.error('❌ Failed to reschedule site visit:', error.message);
-        throw new Error('Failed to reschedule site visit. Please try again.');
+        console.error('❌ Failed to reschedule appointment:', error.message);
+        throw new Error('Failed to reschedule appointment. Please try again.');
     }
 };
 
 /**
- * Get customer's site visits
+ * Get customer's appointments
  */
-export const getCustomerSiteVisits = async (phone: string): Promise<any[]> => {
+export const getCustomerAppointments = async (phone: string): Promise<any[]> => {
     try {
-        const siteVisits = await sheetsService.getSiteVisitHistory(phone);
-        return siteVisits.filter(apt => apt.status === SiteVisitStatus.CONFIRMED);
+        const appointments = await sheetsService.getAppointmentHistory(phone);
+        return appointments.filter(apt => apt.status === AppointmentStatus.CONFIRMED);
     } catch (error) {
-        console.error('Failed to get customer site visits:', error);
+        console.error('Failed to get customer appointments:', error);
         return [];
     }
 };
 
 /**
- * Mark site visit as completed
+ * Mark appointment as completed
  */
-export const completeSiteVisit = async (siteVisitId: string): Promise<void> => {
+export const completeAppointment = async (appointmentId: string): Promise<void> => {
     try {
-        await sheetsService.updateSiteVisitStatus(siteVisitId, SiteVisitStatus.COMPLETED);
-        console.log(`✅ Site visit marked as completed: ${siteVisitId}`);
+        await sheetsService.updateAppointmentStatus(appointmentId, AppointmentStatus.COMPLETED);
+        console.log(`✅ Appointment marked as completed: ${appointmentId}`);
     } catch (error: any) {
-        console.error('❌ Failed to complete site visit:', error.message);
+        console.error('❌ Failed to complete appointment:', error.message);
     }
 };
 
 /**
- * Mark site visit as no-show
+ * Mark appointment as no-show
  */
-export const markNoShow = async (siteVisitId: string): Promise<void> => {
+export const markNoShow = async (appointmentId: string): Promise<void> => {
     try {
-        await sheetsService.updateSiteVisitStatus(siteVisitId, SiteVisitStatus.NO_SHOW);
-        console.log(`✅ Site visit marked as no-show: ${siteVisitId}`);
+        await sheetsService.updateAppointmentStatus(appointmentId, AppointmentStatus.NO_SHOW);
+        console.log(`✅ Appointment marked as no-show: ${appointmentId}`);
     } catch (error: any) {
         console.error('❌ Failed to mark no-show:', error.message);
     }

@@ -13,7 +13,7 @@ export const tools: any[] = [
         type: "function",
         function: {
             name: "get_available_slots",
-            description: "Check available site visit slots for a specific date.",
+            description: "Check available appointment slots for a specific dental service and date.",
             parameters: {
                 type: "object",
                 properties: {
@@ -21,26 +21,26 @@ export const tools: any[] = [
                         type: "string",
                         description: "The date to check in YYYY-MM-DD format."
                     },
-                    lot_id: {
+                    service_id: {
                         type: "string",
-                        description: "The ID of the lot (e.g., lot_a1, lot_a2, lot_a3, lot_a4)."
+                        description: "The ID of the dental service (e.g., dental_001, dental_002, etc.)."
                     }
                 },
-                required: ["date", "lot_id"]
+                required: ["date", "service_id"]
             }
         }
     },
     {
         type: "function",
         function: {
-            name: "book_site_visit",
-            description: "Book a site visit for a customer.",
+            name: "book_appointment",
+            description: "Book a dental appointment for a customer.",
             parameters: {
                 type: "object",
                 properties: {
-                    lot_id: {
+                    service_id: {
                         type: "string",
-                        description: "The ID of the lot."
+                        description: "The ID of the dental service."
                     },
                     date_time: {
                         type: "string",
@@ -55,7 +55,7 @@ export const tools: any[] = [
                         description: "The phone number of the customer."
                     }
                 },
-                required: ["lot_id", "date_time", "customer_name", "customer_phone"]
+                required: ["service_id", "date_time", "customer_name", "customer_phone"]
             }
         }
     }

@@ -1,6 +1,6 @@
 import { google, calendar_v3 } from 'googleapis';
 import { config } from '../config/env';
-import { SiteVisit, TimeSlot } from '../types/appointment.types';
+import { Appointment, TimeSlot } from '../types/appointment.types';
 import { formatAppointmentDateTime, generateTimeSlots, isWithinBusinessHours } from '../utils/date.utils';
 import { addMinutes, startOfDay, endOfDay } from 'date-fns';
 import fs from 'fs';
@@ -98,33 +98,33 @@ export const getAvailableSlots = async (
 };
 
 /**
- * Create site visit in Google Calendar
+ * Create dental appointment in Google Calendar
  */
-export const createSiteVisit = async (siteVisit: SiteVisit): Promise<string> => {
+export const createAppointment = async (appointment: Appointment): Promise<string> => {
     const calendar = await initializeCalendar();
 
-    const endTime = addMinutes(siteVisit.dateTime, siteVisit.service.duration);
+    const endTime = addMinutes(appointment.dateTime, appointment.service.duration);
 
     const event: calendar_v3.Schema$Event = {
-        summary: `Site Visit: ${siteVisit.service.name} - ${siteVisit.customer.name}`,
+        summary: `Dental Appointment: ${appointment.service.name} - ${appointment.customer.name}`,
         description: `
-Customer: ${siteVisit.customer.name}
-Phone: ${siteVisit.customer.phone}
-${siteVisit.customer.email ? `Email: ${siteVisit.customer.email}` : ''}
-Lot/Service: ${siteVisit.service.name}
-Site Visit ID: ${siteVisit.id}
-${siteVisit.notes ? `\nNotes: ${siteVisit.notes}` : ''}
+Customer: ${appointment.customer.name}
+Phone: ${appointment.customer.phone}
+${appointment.customer.email ? `Email: ${appointment.customer.email}` : ''}
+Service: ${appointment.service.name}
+Appointment ID: ${appointment.id}
+${appointment.notes ? `\nNotes: ${appointment.notes}` : ''}
     `.trim(),
         start: {
-            dateTime: siteVisit.dateTime.toISOString(),
+            dateTime: appointment.dateTime.toISOString(),
             timeZone: config.clinic.timezone
         },
         end: {
             dateTime: endTime.toISOString(),
             timeZone: config.clinic.timezone
         },
-        attendees: siteVisit.customer.email ? [
-            { email: siteVisit.customer.email }
+        attendees: appointment.customer.email ? [
+            { email: appointment.customer.email }
         ] : undefined,
         reminders: {
             useDefault: false,
@@ -133,7 +133,7 @@ ${siteVisit.notes ? `\nNotes: ${siteVisit.notes}` : ''}
                 { method: 'popup', minutes: 60 }       // 1 hour before
             ]
         },
-        colorId: '6' // Tangerine for site visits
+        colorId: '1' // Lavender for dental appointments
     };
 
     try {
@@ -152,11 +152,11 @@ ${siteVisit.notes ? `\nNotes: ${siteVisit.notes}` : ''}
 };
 
 /**
- * Update site visit in Google Calendar
+ * Update appointment in Google Calendar
  */
-export const updateSiteVisit = async (
+export const updateAppointment = async (
     eventId: string,
-    updates: Partial<SiteVisit>
+    updates: Partial<Appointment>
 ): Promise<void> => {
     const calendar = await initializeCalendar();
 
@@ -181,8 +181,10 @@ export const updateSiteVisit = async (
             };
         }
 
-        if (updates.customer) {
-            event.summary = `Site Visit: ${updates.service?.name} - ${updates.customer.name}`;
+        if (updates.customer || updates.service) {
+            const customerName = updates.customer?.name || event.summary?.split(' - ').pop();
+            const serviceName = updates.service?.name || event.summary?.split(': ').pop()?.split(' - ')[0];
+            event.summary = `Dental Appointment: ${serviceName} - ${customerName}`;
         }
 
         await calendar.events.update({
@@ -200,9 +202,9 @@ export const updateSiteVisit = async (
 };
 
 /**
- * Cancel site visit in Google Calendar
+ * Cancel appointment in Google Calendar
  */
-export const cancelSiteVisit = async (eventId: string): Promise<void> => {
+export const cancelAppointment = async (eventId: string): Promise<void> => {
     const calendar = await initializeCalendar();
 
     try {
@@ -220,9 +222,9 @@ export const cancelSiteVisit = async (eventId: string): Promise<void> => {
 };
 
 /**
- * Get site visits for a specific customer by phone number
+ * Get appointments for a specific customer by phone number
  */
-export const getSiteVisitsByCustomer = async (phone: string): Promise<calendar_v3.Schema$Event[]> => {
+export const getAppointmentsByCustomer = async (phone: string): Promise<calendar_v3.Schema$Event[]> => {
     const calendar = await initializeCalendar();
 
     try {
@@ -237,7 +239,7 @@ export const getSiteVisitsByCustomer = async (phone: string): Promise<calendar_v
 
         return response.data.items || [];
     } catch (error: any) {
-        console.error('❌ Failed to get customer site visits:', error.message);
+        console.error('❌ Failed to get customer appointments:', error.message);
         return [];
     }
 };

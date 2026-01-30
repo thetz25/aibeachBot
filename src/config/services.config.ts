@@ -1,41 +1,48 @@
-import { LotService } from '../types/appointment.types';
+import { DentalService } from '../types/appointment.types';
 
-export const DENTAL_SERVICES: LotService[] = [
+export const DENTAL_SERVICES: DentalService[] = [
     {
-        id: 'lot_a1',
-        name: 'Site Visit (Francisco, San Mateo)',
-        duration: 60,
-        price: 0,
-        description: '200sqm, ₱1,800/sqm, TCP ₱360k'
+        id: 'dental_001',
+        name: 'General Consultation',
+        duration: 30,
+        price: 500,
+        description: 'Comprehensive dental examination and consultation.'
     },
     {
-        id: 'lot_a2',
-        name: 'Site Visit (Policarpio, Bigte)',
-        duration: 60,
-        price: 0,
-        description: '200sqm, ₱2,500/sqm, TCP ₱500k'
+        id: 'dental_002',
+        name: 'Oral Prophylaxis (Cleaning)',
+        duration: 45,
+        price: 1500,
+        description: 'Professional teeth cleaning to remove plaque and tartar.'
     },
     {
-        id: 'lot_a3',
-        name: 'Site Visit (Pascual Farm, San Mateo)',
+        id: 'dental_003',
+        name: 'Tooth Extraction',
         duration: 60,
-        price: 0,
-        description: '250sqm, ₱2,800/sqm, TCP ₱700k'
+        price: 1000,
+        description: 'Safe and painless removal of damaged or decayed teeth.'
     },
     {
-        id: 'lot_a4',
-        name: 'Site Visit (Vergara, Sta. Maria)',
+        id: 'dental_004',
+        name: 'Dental Fillings',
         duration: 60,
-        price: 0,
-        description: '100sqm, ₱8,000/sqm, TCP ₱800k'
+        price: 1200,
+        description: 'Repairing cavities or minor damage with tooth-colored fillings.'
+    },
+    {
+        id: 'dental_005',
+        name: 'Braces Consultation',
+        duration: 45,
+        price: 800,
+        description: 'Initial assessment for orthodontic treatment (braces).'
     }
 ];
 
-export const getServiceById = (id: string): LotService | undefined => {
+export const getServiceById = (id: string): DentalService | undefined => {
     return DENTAL_SERVICES.find(service => service.id === id);
 };
 
-export const getServiceByName = (name: string): LotService | undefined => {
+export const getServiceByName = (name: string): DentalService | undefined => {
     return DENTAL_SERVICES.find(
         service => service.name.toLowerCase() === name.toLowerCase()
     );

@@ -1,4 +1,4 @@
-export interface LotService {
+export interface DentalService {
     id: string;
     name: string;
     duration: number; // in minutes
@@ -19,18 +19,18 @@ export interface CustomerInfo {
     facebookUserId: string;
 }
 
-export interface SiteVisit {
+export interface Appointment {
     id: string;
-    service: LotService;
+    service: DentalService;
     dateTime: Date;
     customer: CustomerInfo;
-    status: SiteVisitStatus;
+    status: AppointmentStatus;
     calendarEventId?: string;
     notes?: string;
     createdAt: Date;
 }
 
-export enum SiteVisitStatus {
+export enum AppointmentStatus {
     PENDING = 'PENDING',
     CONFIRMED = 'CONFIRMED',
     CANCELLED = 'CANCELLED',
@@ -42,7 +42,7 @@ export interface ConversationState {
     userId: string;
     stage: ConversationStage;
     data: {
-        selectedService?: LotService;
+        selectedService?: DentalService;
         selectedDate?: string;
         selectedTime?: string;
         customerName?: string;

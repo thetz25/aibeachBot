@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { config } from '../config/env';
-import { SiteVisit } from '../types/appointment.types';
+import { Appointment } from '../types/appointment.types';
 import { formatAppointmentDateTime } from '../utils/date.utils';
 
 const FACEBOOK_API_URL = 'https://graph.facebook.com/v22.0/me/messages';
@@ -28,7 +28,7 @@ export const sendMessage = async (recipientId: string, text: string) => {
             recipient: { id: recipientId },
             message: {
                 text: text,
-                metadata: "LOT_BOT"
+                metadata: "DENTAL_BOT"
             }
         }, {
             params: { access_token: config.facebook.pageAccessToken }
@@ -129,25 +129,25 @@ export const sendGenericTemplate = async (
 };
 
 /**
- * Send site visit confirmation
+ * Send dental appointment confirmation
  */
-export const sendSiteVisitConfirmation = async (
+export const sendAppointmentConfirmation = async (
     recipientId: string,
-    siteVisit: SiteVisit
+    appointment: Appointment
 ) => {
     const message = `
-✅ *Site Visit Confirmed!*
+✅ *Appointment Confirmed!*
 
-📋 *Reference:* ${siteVisit.id}
-📍 *Lot:* ${siteVisit.service.name}
-📅 *Date & Time:* ${formatAppointmentDateTime(siteVisit.dateTime)}
-👤 *Customer:* ${siteVisit.customer.name}
-📱 *Phone:* ${siteVisit.customer.phone}
+📋 *Reference:* ${appointment.id}
+🦷 *Service:* ${appointment.service.name}
+📅 *Date & Time:* ${formatAppointmentDateTime(appointment.dateTime)}
+👤 *Patient:* ${appointment.customer.name}
+📱 *Phone:* ${appointment.customer.phone}
 
-See you at the site! 😊
+See you at the clinic! 😊
 
-_Type "my visits" to view your bookings_
-_Type "cancel" to cancel a visit_
+_Type "my appointments" to view your bookings_
+_Type "cancel" to cancel an appointment_
     `.trim();
 
     await sendMessage(recipientId, message);
