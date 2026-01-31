@@ -34,7 +34,16 @@ const initializeSheets = async () => {
         return sheetsClient;
     }
     try {
-        const credentials = JSON.parse(fs_1.default.readFileSync(env_1.config.google.credentialsPath, 'utf-8'));
+        let credentials;
+        if (env_1.config.google.credentialsJson) {
+            credentials = JSON.parse(env_1.config.google.credentialsJson);
+        }
+        else {
+            if (!fs_1.default.existsSync(env_1.config.google.credentialsPath)) {
+                throw new Error(`Google Credentials file not found at ${env_1.config.google.credentialsPath}`);
+            }
+            credentials = JSON.parse(fs_1.default.readFileSync(env_1.config.google.credentialsPath, 'utf-8'));
+        }
         const auth = new googleapis_1.google.auth.GoogleAuth({
             credentials,
             scopes: ['https://www.googleapis.com/auth/spreadsheets']

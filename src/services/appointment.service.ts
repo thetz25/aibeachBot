@@ -1,8 +1,9 @@
 import { Appointment, AppointmentStatus, CustomerInfo } from '../types/appointment.types';
 import { CAR_MODELS, CarModel, getCarById } from '../config/cars.config';
 import { generateAppointmentId } from '../utils/date.utils';
-import * as calendarService from './google-calendar.service';
-import * as sheetsService from './google-sheets.service';
+
+// In-memory storage for appointments (replacing Google Sheets/Calendar)
+const appointmentsStore: Map<string, Appointment> = new Map();
 
 /**
  * Get list of all car models
@@ -20,10 +21,28 @@ export const checkAvailability = async (
     carModel: CarModel
 ): Promise<Date[]> => {
     try {
-        // Default test drive duration 60 mins
-        const duration = 60;
-        const availableSlots = await calendarService.getAvailableSlots(date, duration);
-        return availableSlots.map(slot => slot.start);
+        // Generate available slots (9 AM to 5 PM, hourly slots)
+        const slots: Date[] = [];
+        const startHour = 9;
+        const endHour = 17;
+        
+        for (let hour = startHour; hour < endHour; hour++) {
+            const slot = new Date(date);
+            slot.setHours(hour, 0, 0, 0);
+            
+            // Check if slot is already booked
+            const isBooked = Array.from(appointmentsStore.values()).some(apt => {
+                if (apt.status !== AppointmentStatus.CONFIRMED) return false;
+                const aptDate = new Date(apt.dateTime);
+                return aptDate.getTime() === slot.getTime();
+            });
+            
+            if (!isBooked) {
+                slots.push(slot);
+            }
+        }
+        
+        return slots;
     } catch (error) {
         console.error('Failed to check availability:', error);
         return [];
@@ -35,7 +54,7 @@ export const checkAvailability = async (
  */
 export const bookAppointment = async (
     customerInfo: CustomerInfo,
-    carModel: CarModel, // Renamed from service
+    carModel: CarModel,
     dateTime: Date,
     notes?: string
 ): Promise<Appointment> => {
@@ -51,13 +70,9 @@ export const bookAppointment = async (
     };
 
     try {
-        // Create calendar event
-        const calendarEventId = await calendarService.createAppointment(appointment);
-        appointment.calendarEventId = calendarEventId;
-
-        // Save to Google Sheets
-        await sheetsService.saveAppointment(appointment);
-
+        // Store in memory (replaces Google Calendar and Sheets)
+        appointmentsStore.set(appointment.id, appointment);
+        
         console.log(`✅ Test Drive booked successfully: ${appointment.id}`);
         return appointment;
     } catch (error: any) {
@@ -70,17 +85,14 @@ export const bookAppointment = async (
  * Cancel an appointment
  */
 export const cancelAppointment = async (
-    appointmentId: string,
-    calendarEventId?: string
+    appointmentId: string
 ): Promise<void> => {
     try {
-        // Cancel in calendar
-        if (calendarEventId) {
-            await calendarService.cancelAppointment(calendarEventId);
+        const appointment = appointmentsStore.get(appointmentId);
+        if (appointment) {
+            appointment.status = AppointmentStatus.CANCELLED;
+            appointmentsStore.set(appointmentId, appointment);
         }
-
-        // Update status in sheets
-        await sheetsService.updateAppointmentStatus(appointmentId, AppointmentStatus.CANCELLED);
 
         console.log(`✅ Appointment cancelled: ${appointmentId}`);
     } catch (error: any) {
@@ -94,16 +106,15 @@ export const cancelAppointment = async (
  */
 export const rescheduleAppointment = async (
     appointmentId: string,
-    calendarEventId: string,
     newDateTime: Date,
     carModel: CarModel
 ): Promise<void> => {
     try {
-        // Update calendar event
-        await calendarService.updateAppointment(calendarEventId, {
-            dateTime: newDateTime,
-            service: carModel // Mapping carModel to 'service' expected by calendar wrapper if not updated
-        } as any);
+        const appointment = appointmentsStore.get(appointmentId);
+        if (appointment) {
+            appointment.dateTime = newDateTime;
+            appointmentsStore.set(appointmentId, appointment);
+        }
 
         console.log(`✅ Appointment rescheduled: ${appointmentId}`);
     } catch (error: any) {
@@ -117,8 +128,10 @@ export const rescheduleAppointment = async (
  */
 export const getCustomerAppointments = async (phone: string): Promise<any[]> => {
     try {
-        const appointments = await sheetsService.getAppointmentHistory(phone);
-        return appointments.filter((apt: any) => apt.status === AppointmentStatus.CONFIRMED);
+        const appointments = Array.from(appointmentsStore.values()).filter(apt => 
+            apt.customer.phone === phone && apt.status === AppointmentStatus.CONFIRMED
+        );
+        return appointments;
     } catch (error) {
         console.error('Failed to get customer appointments:', error);
         return [];
@@ -129,12 +142,12 @@ export const getCustomerAppointments = async (phone: string): Promise<any[]> => 
  * Cancel appointment by ID
  */
 export const cancelAppointmentById = async (appointmentId: string): Promise<void> => {
-    const appointment = await sheetsService.getAppointmentById(appointmentId);
+    const appointment = appointmentsStore.get(appointmentId);
     if (!appointment) {
         throw new Error(`Appointment ${appointmentId} not found.`);
     }
 
-    await cancelAppointment(appointmentId, appointment.calendarEventId);
+    await cancelAppointment(appointmentId);
 };
 
 /**
@@ -144,16 +157,15 @@ export const rescheduleAppointmentById = async (
     appointmentId: string,
     newDateTime: Date
 ): Promise<void> => {
-    const appointment = await sheetsService.getAppointmentById(appointmentId);
+    const appointment = appointmentsStore.get(appointmentId);
     if (!appointment) {
         throw new Error(`Appointment ${appointmentId} not found.`);
     }
 
-    const carModel = getCarById(appointment.serviceName) || CAR_MODELS[0]; // Fallback
+    const carModel = appointment.carModel || CAR_MODELS[0]; // Fallback
 
     await rescheduleAppointment(
         appointmentId,
-        appointment.calendarEventId,
         newDateTime,
         carModel
     );

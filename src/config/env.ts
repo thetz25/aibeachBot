@@ -10,13 +10,6 @@ export const config = {
         verifyToken: process.env.FACEBOOK_VERIFY_TOKEN
     },
 
-    google: {
-        credentialsPath: process.env.GOOGLE_CREDENTIALS_PATH || './credentials/google-credentials.json',
-        credentialsJson: process.env.GOOGLE_CREDENTIALS_JSON,
-        calendarId: process.env.GOOGLE_CALENDAR_ID || 'primary',
-        sheetId: process.env.GOOGLE_SHEET_ID
-    },
-
     dealership: {
         name: process.env.DEALERSHIP_NAME || 'Mitsubishi Motors Bot',
         timezone: process.env.DEALERSHIP_TIMEZONE || 'Asia/Manila',
@@ -40,7 +33,5 @@ if (!config.facebook.pageAccessToken || !config.facebook.verifyToken) {
     console.error("⚠️ WARNING: Missing Facebook Credentials. Chatbot will not function correctly.");
 }
 
-if (!config.google.sheetId) {
-    console.warn("⚠️ WARNING: Missing Google Sheet ID. Appointments will not be saved to sheets.");
-}
+
 

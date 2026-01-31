@@ -44,7 +44,4 @@ COMPANY:
 Smile Dental Clinic
 123 Health Ave, Norzagaray, Bulacan
 
-HUMAN HANDOFF:
-- If the user asks to speak to a "human", "dentist", "doctor", or "support", reply with EXACTLY one word: "TRANSFER_AGENT".
-- Do not add emoji or text to this keyword.
 `;

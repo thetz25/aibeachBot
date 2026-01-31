@@ -200,13 +200,7 @@ const handleWebhook = async (req, res) => {
                             response = await (0, openai_service_1.generateAIResponse)(receivedText, aiHistory);
                         }
                         const aiReply = response.content;
-                        if (aiReply && aiReply.includes('TRANSFER_AGENT')) {
-                            pausedUsers.set(senderId, Date.now() + (60 * 60 * 1000)); // Pause for 1 hour
-                            await (0, messenger_service_1.sendMessage)(senderId, "✅ Handing you over to our sales agent. Please wait, they will reply shortly.");
-                            await (0, db_service_1.saveMessage)(senderId, 'user', receivedText);
-                            await (0, db_service_1.saveMessage)(senderId, 'assistant', "✅ Handing you over to sales agent...");
-                        }
-                        else if (aiReply) {
+                        if (aiReply) {
                             await (0, messenger_service_1.sendMessage)(senderId, aiReply);
                             (0, db_service_1.saveMessage)(senderId, 'user', receivedText);
                             (0, db_service_1.saveMessage)(senderId, 'assistant', aiReply);
