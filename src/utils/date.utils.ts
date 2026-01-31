@@ -7,11 +7,15 @@ import { config } from '../config/env';
  */
 export const generateTimeSlots = (date: Date, duration: number): Date[] => {
     const slots: Date[] = [];
-    const timezone = config.clinic.timezone;
+    const timezone = config.dealership.timezone;
 
     // Parse business hours
-    const [startHour, startMinute] = config.clinic.businessHours.start.split(':').map(Number);
-    const [endHour, endMinute] = config.clinic.businessHours.end.split(':').map(Number);
+    // Default business hours if not set
+    const startStr = process.env.DEALERSHIP_BUSINESS_HOURS_START || '09:00';
+    const endStr = process.env.DEALERSHIP_BUSINESS_HOURS_END || '18:00';
+
+    const [startHour, startMinute] = startStr.split(':').map(Number);
+    const [endHour, endMinute] = endStr.split(':').map(Number);
 
     // Set start and end times for the day
     let currentSlot = setMinutes(setHours(startOfDay(date), startHour), startMinute);
@@ -30,8 +34,11 @@ export const generateTimeSlots = (date: Date, duration: number): Date[] => {
  * Check if a datetime is within business hours
  */
 export const isWithinBusinessHours = (dateTime: Date): boolean => {
-    const [startHour, startMinute] = config.clinic.businessHours.start.split(':').map(Number);
-    const [endHour, endMinute] = config.clinic.businessHours.end.split(':').map(Number);
+    const startStr = process.env.DEALERSHIP_BUSINESS_HOURS_START || '09:00';
+    const endStr = process.env.DEALERSHIP_BUSINESS_HOURS_END || '18:00';
+
+    const [startHour, startMinute] = startStr.split(':').map(Number);
+    const [endHour, endMinute] = endStr.split(':').map(Number);
 
     const startTime = setMinutes(setHours(startOfDay(dateTime), startHour), startMinute);
     const endTime = setMinutes(setHours(startOfDay(dateTime), endHour), endMinute);
@@ -43,21 +50,21 @@ export const isWithinBusinessHours = (dateTime: Date): boolean => {
  * Format appointment date for user display
  */
 export const formatAppointmentDate = (date: Date): string => {
-    return formatInTimeZone(date, config.clinic.timezone, 'MMMM dd, yyyy');
+    return formatInTimeZone(date, config.dealership.timezone, 'MMMM dd, yyyy');
 };
 
 /**
  * Format appointment time for user display
  */
 export const formatAppointmentTime = (date: Date): string => {
-    return formatInTimeZone(date, config.clinic.timezone, 'h:mm a');
+    return formatInTimeZone(date, config.dealership.timezone, 'h:mm a');
 };
 
 /**
  * Format full appointment datetime
  */
 export const formatAppointmentDateTime = (date: Date): string => {
-    return formatInTimeZone(date, config.clinic.timezone, 'MMMM dd, yyyy \'at\' h:mm a');
+    return formatInTimeZone(date, config.dealership.timezone, 'MMMM dd, yyyy \'at\' h:mm a');
 };
 
 /**
@@ -105,7 +112,8 @@ export const parseUserDate = (input: string): Date | null => {
  */
 export const isWithinBookingWindow = (date: Date): boolean => {
     const today = startOfDay(new Date());
-    const maxDate = addDays(today, config.clinic.daysAdvanceBooking);
+    const daysAdvance = 30; // Default or from config
+    const maxDate = addDays(today, daysAdvance);
 
     return !isBefore(date, today) && !isAfter(date, maxDate);
 };

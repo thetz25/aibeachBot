@@ -2,6 +2,7 @@ import axios from 'axios';
 import { config } from '../config/env';
 import { Appointment } from '../types/appointment.types';
 import { formatAppointmentDateTime } from '../utils/date.utils';
+import { CarModel } from '../config/cars.config';
 
 const FACEBOOK_API_URL = 'https://graph.facebook.com/v22.0/me/messages';
 
@@ -28,7 +29,7 @@ export const sendMessage = async (recipientId: string, text: string) => {
             recipient: { id: recipientId },
             message: {
                 text: text,
-                metadata: "DENTAL_BOT"
+                metadata: "CAR_BOT"
             }
         }, {
             params: { access_token: config.facebook.pageAccessToken }
@@ -129,53 +130,137 @@ export const sendGenericTemplate = async (
 };
 
 /**
- * Send dental appointment confirmation
+ * Send test drive confirmation
  */
 export const sendAppointmentConfirmation = async (
     recipientId: string,
     appointment: Appointment
 ) => {
     const message = `
-✅ *Appointment Confirmed!*
+✅ *Test Drive Confirmed!*
 
 📋 *Reference:* ${appointment.id}
-🦷 *Service:* ${appointment.service.name}
+🚗 *Car:* ${appointment.carModel.name}
 📅 *Date & Time:* ${formatAppointmentDateTime(appointment.dateTime)}
-👤 *Patient:* ${appointment.customer.name}
+👤 *Customer:* ${appointment.customer.name}
 📱 *Phone:* ${appointment.customer.phone}
 
-See you at the clinic! 😊
+Please visit our dealership 15 minutes before your schedule. Don't forget your driver's license! 🚘
 
-_Type "my appointments" to view your bookings_
-_Type "cancel" to cancel an appointment_
+_Type "cancel" to cancel your appointment_
     `.trim();
 
     await sendMessage(recipientId, message);
 };
 
 /**
- * Send dental service gallery using generic template
+ * Send Car Model Gallery
  */
-export const sendServiceGallery = async (recipientId: string, services: any[]) => {
-    const elements = services.map(service => ({
-        title: service.name,
-        subtitle: `${service.description}\nPrice: ₱${service.price}`,
-        image_url: `https://placehold.co/600x315?text=${encodeURIComponent(service.name)}`, // Placeholder for now
+export const sendCarGallery = async (recipientId: string, cars: CarModel[]) => {
+    // Facebook Generic Template limit is 10 elements
+    const elements = cars.slice(0, 10).map(car => ({
+        title: car.name,
+        subtitle: `₱${car.price.toLocaleString()} \n${car.description.substring(0, 60)}...`,
+        image_url: car.imageUrl,
         buttons: [
             {
                 type: 'postback',
-                title: 'Book This',
-                payload: `BOOK_SERVICE_${service.id}`
+                title: 'View Specs',
+                payload: `DETAILS_${car.id}`
             },
             {
-                type: 'web_url',
-                url: 'https://example.com/services', // Example link
-                title: 'Learn More'
+                type: 'postback',
+                title: 'Get Quote',
+                payload: `QUOTE_${car.id}`
+            },
+            {
+                type: 'postback',
+                title: 'Book Test Drive',
+                payload: `TEST_DRIVE_${car.id}`
             }
         ]
     }));
 
     await sendGenericTemplate(recipientId, elements);
+};
+
+/**
+ * Send detailed car specs with image
+ */
+export const sendCarDetails = async (recipientId: string, car: CarModel) => {
+    const specs = `
+🚘 *${car.name}*
+💰 Price: ₱${car.price.toLocaleString()}
+
+⚙️ *Specifications:*
+• Engine: ${car.specs.engine}
+• Power: ${car.specs.power}
+• Torque: ${car.specs.torque}
+• Transmission: ${car.specs.transmission}
+• Seats: ${car.specs.seatingCapacity}
+• Fuel: ${car.specs.fuelType}
+
+${car.description}
+    `.trim();
+
+    // Workaround: Send image first as separate message or use generic template with 1 element for "Rich Media" feel
+    // Using Generic Template for better UI
+    const element = {
+        title: car.name,
+        subtitle: `₱${car.price.toLocaleString()} | ${car.specs.engine}`,
+        image_url: car.imageUrl,
+        buttons: [
+            {
+                type: 'postback',
+                title: 'Get Quotation',
+                payload: `QUOTE_${car.id}`
+            },
+            {
+                type: 'postback',
+                title: 'Book Test Drive',
+                payload: `TEST_DRIVE_${car.id}`
+            }
+        ]
+    };
+
+    await sendGenericTemplate(recipientId, [element]);
+    // Send full specs text after
+    await sendMessage(recipientId, specs);
+};
+
+/**
+ * Send Price Quotation
+ */
+export const sendQuotation = async (recipientId: string, car: CarModel, dpPercent: number, years: number) => {
+    const dpAmount = car.price * dpPercent;
+    const loanAmount = car.price - dpAmount;
+    // Simple mock interest rate logic (e.g., 5% per annum flat)
+    const interestRate = 0.05;
+    const totalInterest = loanAmount * interestRate * years;
+    const totalLoan = loanAmount + totalInterest;
+    const monthlyAmortization = totalLoan / (years * 12);
+
+    const message = `
+📝 *Quotation for ${car.name}*
+
+💰 *SRP:* ₱${car.price.toLocaleString()}
+--------
+💵 *Downpayment (${dpPercent * 100}%):* ₱${dpAmount.toLocaleString()}
+🏦 *Loan Amount:* ₱${loanAmount.toLocaleString()}
+📅 *Term:* ${years} Years
+
+📉 *Monthly Amortization (Est.):*
+*₱${Math.round(monthlyAmortization).toLocaleString()} / month*
+
+_Note: This is an estimated computation. Subject to bank approval._
+
+Would you like to schedule a test drive?
+    `.trim();
+
+    await sendQuickReplies(recipientId, message, [
+        { content_type: 'text', title: 'Yes, Test Drive', payload: `TEST_DRIVE_${car.id}` },
+        { content_type: 'text', title: 'Check other cars', payload: 'SHOW_SERVICES' } // Using SHOW_SERVICES payload to trigger gallery
+    ]);
 };
 
 /**

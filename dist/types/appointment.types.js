@@ -12,12 +12,11 @@ var AppointmentStatus;
 var ConversationStage;
 (function (ConversationStage) {
     ConversationStage["INITIAL"] = "INITIAL";
-    ConversationStage["SERVICE_SELECTION"] = "SERVICE_SELECTION";
+    ConversationStage["CAR_SELECTION"] = "CAR_SELECTION";
     ConversationStage["DATE_SELECTION"] = "DATE_SELECTION";
     ConversationStage["TIME_SELECTION"] = "TIME_SELECTION";
     ConversationStage["CUSTOMER_NAME"] = "CUSTOMER_NAME";
     ConversationStage["CUSTOMER_PHONE"] = "CUSTOMER_PHONE";
-    ConversationStage["CUSTOMER_EMAIL"] = "CUSTOMER_EMAIL";
     ConversationStage["CONFIRMATION"] = "CONFIRMATION";
     ConversationStage["COMPLETED"] = "COMPLETED";
 })(ConversationStage || (exports.ConversationStage = ConversationStage = {}));

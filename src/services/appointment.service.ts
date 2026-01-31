@@ -1,25 +1,28 @@
-import { Appointment, AppointmentStatus, DentalService, CustomerInfo } from '../types/appointment.types';
-import { DENTAL_SERVICES, getServiceById } from '../config/services.config';
+import { Appointment, AppointmentStatus, CustomerInfo } from '../types/appointment.types';
+import { CAR_MODELS, CarModel, getCarById } from '../config/cars.config';
 import { generateAppointmentId } from '../utils/date.utils';
 import * as calendarService from './google-calendar.service';
 import * as sheetsService from './google-sheets.service';
 
 /**
- * Get list of all dental services
+ * Get list of all car models
  */
-export const getDentalServices = (): DentalService[] => {
-    return DENTAL_SERVICES;
+export const getCarModels = (): CarModel[] => {
+    return CAR_MODELS;
 };
 
 /**
- * Check availability for a specific date and service
+ * Check availability for a specific date and test drive (duration is fixed or based on car?)
+ * Assuming uniform duration for test drives for now (e.g. 60 mins)
  */
 export const checkAvailability = async (
     date: Date,
-    service: DentalService
+    carModel: CarModel
 ): Promise<Date[]> => {
     try {
-        const availableSlots = await calendarService.getAvailableSlots(date, service.duration);
+        // Default test drive duration 60 mins
+        const duration = 60;
+        const availableSlots = await calendarService.getAvailableSlots(date, duration);
         return availableSlots.map(slot => slot.start);
     } catch (error) {
         console.error('Failed to check availability:', error);
@@ -28,18 +31,18 @@ export const checkAvailability = async (
 };
 
 /**
- * Book a new dental appointment
+ * Book a new Test Drive appointment
  */
 export const bookAppointment = async (
     customerInfo: CustomerInfo,
-    service: DentalService,
+    carModel: CarModel, // Renamed from service
     dateTime: Date,
     notes?: string
 ): Promise<Appointment> => {
     // Create appointment object
     const appointment: Appointment = {
         id: generateAppointmentId(dateTime),
-        service,
+        carModel: carModel,
         dateTime,
         customer: customerInfo,
         status: AppointmentStatus.CONFIRMED,
@@ -55,11 +58,11 @@ export const bookAppointment = async (
         // Save to Google Sheets
         await sheetsService.saveAppointment(appointment);
 
-        console.log(`✅ Appointment booked successfully: ${appointment.id}`);
+        console.log(`✅ Test Drive booked successfully: ${appointment.id}`);
         return appointment;
     } catch (error: any) {
-        console.error('❌ Failed to book appointment:', error.message);
-        throw new Error('Failed to book appointment. Please try again.');
+        console.error('❌ Failed to book test drive:', error.message);
+        throw new Error('Failed to book test drive. Please try again.');
     }
 };
 
@@ -93,13 +96,13 @@ export const rescheduleAppointment = async (
     appointmentId: string,
     calendarEventId: string,
     newDateTime: Date,
-    service: DentalService
+    carModel: CarModel
 ): Promise<void> => {
     try {
         // Update calendar event
         await calendarService.updateAppointment(calendarEventId, {
             dateTime: newDateTime,
-            service
+            service: carModel // Mapping carModel to 'service' expected by calendar wrapper if not updated
         } as any);
 
         console.log(`✅ Appointment rescheduled: ${appointmentId}`);
@@ -119,30 +122,6 @@ export const getCustomerAppointments = async (phone: string): Promise<any[]> => 
     } catch (error) {
         console.error('Failed to get customer appointments:', error);
         return [];
-    }
-};
-
-/**
- * Mark appointment as completed
- */
-export const completeAppointment = async (appointmentId: string): Promise<void> => {
-    try {
-        await sheetsService.updateAppointmentStatus(appointmentId, AppointmentStatus.COMPLETED);
-        console.log(`✅ Appointment marked as completed: ${appointmentId}`);
-    } catch (error: any) {
-        console.error('❌ Failed to complete appointment:', error.message);
-    }
-};
-
-/**
- * Mark appointment as no-show
- */
-export const markNoShow = async (appointmentId: string): Promise<void> => {
-    try {
-        await sheetsService.updateAppointmentStatus(appointmentId, AppointmentStatus.NO_SHOW);
-        console.log(`✅ Appointment marked as no-show: ${appointmentId}`);
-    } catch (error: any) {
-        console.error('❌ Failed to mark no-show:', error.message);
     }
 };
 
@@ -170,12 +149,12 @@ export const rescheduleAppointmentById = async (
         throw new Error(`Appointment ${appointmentId} not found.`);
     }
 
-    const service = getServiceById(appointment.serviceName) || DENTAL_SERVICES[0]; // Fallback if name mapping fails
+    const carModel = getCarById(appointment.serviceName) || CAR_MODELS[0]; // Fallback
 
     await rescheduleAppointment(
         appointmentId,
         appointment.calendarEventId,
         newDateTime,
-        service
+        carModel
     );
 };

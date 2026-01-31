@@ -1,10 +1,4 @@
-export interface DentalService {
-    id: string;
-    name: string;
-    duration: number; // in minutes
-    price: number; // in PHP
-    description?: string;
-}
+import { CarModel } from '../config/cars.config';
 
 export interface TimeSlot {
     start: Date;
@@ -21,7 +15,7 @@ export interface CustomerInfo {
 
 export interface Appointment {
     id: string;
-    service: DentalService;
+    carModel: CarModel; // Replaces 'service'
     dateTime: Date;
     customer: CustomerInfo;
     status: AppointmentStatus;
@@ -38,11 +32,12 @@ export enum AppointmentStatus {
     NO_SHOW = 'NO_SHOW'
 }
 
+// Keeping ConversationState generic enough, though mostly handled by AI now
 export interface ConversationState {
     userId: string;
     stage: ConversationStage;
     data: {
-        selectedService?: DentalService;
+        selectedCarId?: string;
         selectedDate?: string;
         selectedTime?: string;
         customerName?: string;
@@ -54,12 +49,11 @@ export interface ConversationState {
 
 export enum ConversationStage {
     INITIAL = 'INITIAL',
-    SERVICE_SELECTION = 'SERVICE_SELECTION',
+    CAR_SELECTION = 'CAR_SELECTION',
     DATE_SELECTION = 'DATE_SELECTION',
     TIME_SELECTION = 'TIME_SELECTION',
     CUSTOMER_NAME = 'CUSTOMER_NAME',
     CUSTOMER_PHONE = 'CUSTOMER_PHONE',
-    CUSTOMER_EMAIL = 'CUSTOMER_EMAIL',
     CONFIRMATION = 'CONFIRMATION',
     COMPLETED = 'COMPLETED'
 }

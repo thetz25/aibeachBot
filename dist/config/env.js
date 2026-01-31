@@ -18,15 +18,11 @@ exports.config = {
         calendarId: process.env.GOOGLE_CALENDAR_ID || 'primary',
         sheetId: process.env.GOOGLE_SHEET_ID
     },
-    clinic: {
-        name: process.env.CLINIC_NAME || 'Smile Dental Clinic',
-        timezone: process.env.CLINIC_TIMEZONE || 'Asia/Manila',
-        businessHours: {
-            start: process.env.CLINIC_BUSINESS_HOURS_START || '09:00',
-            end: process.env.CLINIC_BUSINESS_HOURS_END || '18:00'
-        },
-        slotDuration: parseInt(process.env.CLINIC_SLOT_DURATION || '30'),
-        daysAdvanceBooking: parseInt(process.env.CLINIC_DAYS_ADVANCE_BOOKING || '30')
+    dealership: {
+        name: process.env.DEALERSHIP_NAME || 'Mitsubishi Motors Bot',
+        timezone: process.env.DEALERSHIP_TIMEZONE || 'Asia/Manila',
+        defaultDpPercent: 0.20,
+        maxLoanYears: 5
     },
     openai: {
         apiKey: process.env.OPENAI_API_KEY

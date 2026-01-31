@@ -11,7 +11,7 @@ const HEADER_ROW = [
     'Visit ID',
     'Date',
     'Time',
-    'Lot/Service',
+    'Car Model', // Renamed from Lot/Service
     'Customer Name',
     'Phone',
     'Email',
@@ -118,7 +118,7 @@ export const saveAppointment = async (appointment: Appointment): Promise<void> =
         appointment.id,
         formatAppointmentDate(appointment.dateTime),
         formatAppointmentTime(appointment.dateTime),
-        appointment.service.name,
+        appointment.carModel.name, // Updated
         appointment.customer.name,
         appointment.customer.phone,
         appointment.customer.email || '',
@@ -127,7 +127,7 @@ export const saveAppointment = async (appointment: Appointment): Promise<void> =
         appointment.customer.facebookUserId,
         appointment.calendarEventId || '',
         appointment.notes || '',
-        appointment.service.price
+        appointment.carModel.price // Updated
     ];
 
     try {
@@ -212,7 +212,7 @@ export const getAppointmentHistory = async (phone: string): Promise<any[]> => {
             id: row[0],
             date: row[1],
             time: row[2],
-            service: row[3],
+            serviceName: row[3], // Updated mapping name
             name: row[4],
             phone: row[5],
             email: row[6],
@@ -248,7 +248,7 @@ export const getAppointmentById = async (appointmentId: string): Promise<any | n
             id: row[0],
             date: row[1],
             time: row[2],
-            serviceName: row[3],
+            serviceName: row[3], // Updated mapping name
             customerName: row[4],
             phone: row[5],
             email: row[6],
@@ -289,7 +289,7 @@ export const generateDailyReport = async (date: Date): Promise<any[]> => {
             id: row[0],
             date: row[1],
             time: row[2],
-            service: row[3],
+            serviceName: row[3], // Updated mapping name
             name: row[4],
             phone: row[5],
             status: row[7],
@@ -328,7 +328,7 @@ export const getUpcomingAppointments = async (): Promise<any[]> => {
             id: row[0],
             date: row[1],
             time: row[2],
-            service: row[3],
+            serviceName: row[3], // Updated mapping name
             name: row[4],
             phone: row[5],
             status: row[7]

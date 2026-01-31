@@ -33,25 +33,28 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rescheduleAppointmentById = exports.cancelAppointmentById = exports.markNoShow = exports.completeAppointment = exports.getCustomerAppointments = exports.rescheduleAppointment = exports.cancelAppointment = exports.bookAppointment = exports.checkAvailability = exports.getDentalServices = void 0;
+exports.rescheduleAppointmentById = exports.cancelAppointmentById = exports.getCustomerAppointments = exports.rescheduleAppointment = exports.cancelAppointment = exports.bookAppointment = exports.checkAvailability = exports.getCarModels = void 0;
 const appointment_types_1 = require("../types/appointment.types");
-const services_config_1 = require("../config/services.config");
+const cars_config_1 = require("../config/cars.config");
 const date_utils_1 = require("../utils/date.utils");
 const calendarService = __importStar(require("./google-calendar.service"));
 const sheetsService = __importStar(require("./google-sheets.service"));
 /**
- * Get list of all dental services
+ * Get list of all car models
  */
-const getDentalServices = () => {
-    return services_config_1.DENTAL_SERVICES;
+const getCarModels = () => {
+    return cars_config_1.CAR_MODELS;
 };
-exports.getDentalServices = getDentalServices;
+exports.getCarModels = getCarModels;
 /**
- * Check availability for a specific date and service
+ * Check availability for a specific date and test drive (duration is fixed or based on car?)
+ * Assuming uniform duration for test drives for now (e.g. 60 mins)
  */
-const checkAvailability = async (date, service) => {
+const checkAvailability = async (date, carModel) => {
     try {
-        const availableSlots = await calendarService.getAvailableSlots(date, service.duration);
+        // Default test drive duration 60 mins
+        const duration = 60;
+        const availableSlots = await calendarService.getAvailableSlots(date, duration);
         return availableSlots.map(slot => slot.start);
     }
     catch (error) {
@@ -61,13 +64,14 @@ const checkAvailability = async (date, service) => {
 };
 exports.checkAvailability = checkAvailability;
 /**
- * Book a new dental appointment
+ * Book a new Test Drive appointment
  */
-const bookAppointment = async (customerInfo, service, dateTime, notes) => {
+const bookAppointment = async (customerInfo, carModel, // Renamed from service
+dateTime, notes) => {
     // Create appointment object
     const appointment = {
         id: (0, date_utils_1.generateAppointmentId)(dateTime),
-        service,
+        carModel: carModel,
         dateTime,
         customer: customerInfo,
         status: appointment_types_1.AppointmentStatus.CONFIRMED,
@@ -80,12 +84,12 @@ const bookAppointment = async (customerInfo, service, dateTime, notes) => {
         appointment.calendarEventId = calendarEventId;
         // Save to Google Sheets
         await sheetsService.saveAppointment(appointment);
-        console.log(`✅ Appointment booked successfully: ${appointment.id}`);
+        console.log(`✅ Test Drive booked successfully: ${appointment.id}`);
         return appointment;
     }
     catch (error) {
-        console.error('❌ Failed to book appointment:', error.message);
-        throw new Error('Failed to book appointment. Please try again.');
+        console.error('❌ Failed to book test drive:', error.message);
+        throw new Error('Failed to book test drive. Please try again.');
     }
 };
 exports.bookAppointment = bookAppointment;
@@ -111,12 +115,12 @@ exports.cancelAppointment = cancelAppointment;
 /**
  * Reschedule an appointment
  */
-const rescheduleAppointment = async (appointmentId, calendarEventId, newDateTime, service) => {
+const rescheduleAppointment = async (appointmentId, calendarEventId, newDateTime, carModel) => {
     try {
         // Update calendar event
         await calendarService.updateAppointment(calendarEventId, {
             dateTime: newDateTime,
-            service
+            service: carModel // Mapping carModel to 'service' expected by calendar wrapper if not updated
         });
         console.log(`✅ Appointment rescheduled: ${appointmentId}`);
     }
@@ -141,32 +145,6 @@ const getCustomerAppointments = async (phone) => {
 };
 exports.getCustomerAppointments = getCustomerAppointments;
 /**
- * Mark appointment as completed
- */
-const completeAppointment = async (appointmentId) => {
-    try {
-        await sheetsService.updateAppointmentStatus(appointmentId, appointment_types_1.AppointmentStatus.COMPLETED);
-        console.log(`✅ Appointment marked as completed: ${appointmentId}`);
-    }
-    catch (error) {
-        console.error('❌ Failed to complete appointment:', error.message);
-    }
-};
-exports.completeAppointment = completeAppointment;
-/**
- * Mark appointment as no-show
- */
-const markNoShow = async (appointmentId) => {
-    try {
-        await sheetsService.updateAppointmentStatus(appointmentId, appointment_types_1.AppointmentStatus.NO_SHOW);
-        console.log(`✅ Appointment marked as no-show: ${appointmentId}`);
-    }
-    catch (error) {
-        console.error('❌ Failed to mark no-show:', error.message);
-    }
-};
-exports.markNoShow = markNoShow;
-/**
  * Cancel appointment by ID
  */
 const cancelAppointmentById = async (appointmentId) => {
@@ -185,7 +163,7 @@ const rescheduleAppointmentById = async (appointmentId, newDateTime) => {
     if (!appointment) {
         throw new Error(`Appointment ${appointmentId} not found.`);
     }
-    const service = (0, services_config_1.getServiceById)(appointment.serviceName) || services_config_1.DENTAL_SERVICES[0]; // Fallback if name mapping fails
-    await (0, exports.rescheduleAppointment)(appointmentId, appointment.calendarEventId, newDateTime, service);
+    const carModel = (0, cars_config_1.getCarById)(appointment.serviceName) || cars_config_1.CAR_MODELS[0]; // Fallback
+    await (0, exports.rescheduleAppointment)(appointmentId, appointment.calendarEventId, newDateTime, carModel);
 };
 exports.rescheduleAppointmentById = rescheduleAppointmentById;

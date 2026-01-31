@@ -98,30 +98,32 @@ export const getAvailableSlots = async (
 };
 
 /**
- * Create dental appointment in Google Calendar
+ * Create test drive appointment in Google Calendar
  */
 export const createAppointment = async (appointment: Appointment): Promise<string> => {
     const calendar = await initializeCalendar();
 
-    const endTime = addMinutes(appointment.dateTime, appointment.service.duration);
+    // Default duration for test drive: 60 minutes
+    const duration = 60;
+    const endTime = addMinutes(appointment.dateTime, duration);
 
     const event: calendar_v3.Schema$Event = {
-        summary: `Dental Appointment: ${appointment.service.name} - ${appointment.customer.name}`,
+        summary: `Test Drive: ${appointment.carModel.name} - ${appointment.customer.name}`,
         description: `
 Customer: ${appointment.customer.name}
 Phone: ${appointment.customer.phone}
 ${appointment.customer.email ? `Email: ${appointment.customer.email}` : ''}
-Service: ${appointment.service.name}
+Car: ${appointment.carModel.name}
 Appointment ID: ${appointment.id}
 ${appointment.notes ? `\nNotes: ${appointment.notes}` : ''}
     `.trim(),
         start: {
             dateTime: appointment.dateTime.toISOString(),
-            timeZone: config.clinic.timezone
+            timeZone: config.dealership.timezone
         },
         end: {
             dateTime: endTime.toISOString(),
-            timeZone: config.clinic.timezone
+            timeZone: config.dealership.timezone
         },
         attendees: appointment.customer.email ? [
             { email: appointment.customer.email }
@@ -133,7 +135,7 @@ ${appointment.notes ? `\nNotes: ${appointment.notes}` : ''}
                 { method: 'popup', minutes: 60 }       // 1 hour before
             ]
         },
-        colorId: '1' // Lavender for dental appointments
+        colorId: '5' // Yellow for Test Drive
     };
 
     try {
@@ -170,21 +172,22 @@ export const updateAppointment = async (
         const event = existingEvent.data;
 
         // Update fields
-        if (updates.dateTime && updates.service) {
+        if (updates.dateTime && updates.carModel) {
+            const duration = 60;
             event.start = {
                 dateTime: updates.dateTime.toISOString(),
-                timeZone: config.clinic.timezone
+                timeZone: config.dealership.timezone
             };
             event.end = {
-                dateTime: addMinutes(updates.dateTime, updates.service.duration).toISOString(),
-                timeZone: config.clinic.timezone
+                dateTime: addMinutes(updates.dateTime, duration).toISOString(),
+                timeZone: config.dealership.timezone
             };
         }
 
-        if (updates.customer || updates.service) {
+        if (updates.customer || updates.carModel) {
             const customerName = updates.customer?.name || event.summary?.split(' - ').pop();
-            const serviceName = updates.service?.name || event.summary?.split(': ').pop()?.split(' - ')[0];
-            event.summary = `Dental Appointment: ${serviceName} - ${customerName}`;
+            const carName = updates.carModel?.name || event.summary?.split(': ').pop()?.split(' - ')[0];
+            event.summary = `Test Drive: ${carName} - ${customerName}`;
         }
 
         await calendar.events.update({

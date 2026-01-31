@@ -15,7 +15,7 @@ const HEADER_ROW = [
     'Visit ID',
     'Date',
     'Time',
-    'Lot/Service',
+    'Car Model', // Renamed from Lot/Service
     'Customer Name',
     'Phone',
     'Email',
@@ -107,7 +107,7 @@ const saveAppointment = async (appointment) => {
         appointment.id,
         (0, date_utils_1.formatAppointmentDate)(appointment.dateTime),
         (0, date_utils_1.formatAppointmentTime)(appointment.dateTime),
-        appointment.service.name,
+        appointment.carModel.name, // Updated
         appointment.customer.name,
         appointment.customer.phone,
         appointment.customer.email || '',
@@ -116,7 +116,7 @@ const saveAppointment = async (appointment) => {
         appointment.customer.facebookUserId,
         appointment.calendarEventId || '',
         appointment.notes || '',
-        appointment.service.price
+        appointment.carModel.price // Updated
     ];
     try {
         await sheets.spreadsheets.values.append({
@@ -189,7 +189,7 @@ const getAppointmentHistory = async (phone) => {
             id: row[0],
             date: row[1],
             time: row[2],
-            service: row[3],
+            serviceName: row[3], // Updated mapping name
             name: row[4],
             phone: row[5],
             email: row[6],
@@ -224,7 +224,7 @@ const getAppointmentById = async (appointmentId) => {
             id: row[0],
             date: row[1],
             time: row[2],
-            serviceName: row[3],
+            serviceName: row[3], // Updated mapping name
             customerName: row[4],
             phone: row[5],
             email: row[6],
@@ -262,7 +262,7 @@ const generateDailyReport = async (date) => {
             id: row[0],
             date: row[1],
             time: row[2],
-            service: row[3],
+            serviceName: row[3], // Updated mapping name
             name: row[4],
             phone: row[5],
             status: row[7],
@@ -298,7 +298,7 @@ const getUpcomingAppointments = async () => {
             id: row[0],
             date: row[1],
             time: row[2],
-            service: row[3],
+            serviceName: row[3], // Updated mapping name
             name: row[4],
             phone: row[5],
             status: row[7]
