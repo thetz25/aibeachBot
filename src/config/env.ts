@@ -12,6 +12,7 @@ export const config = {
 
     google: {
         credentialsPath: process.env.GOOGLE_CREDENTIALS_PATH || './credentials/google-credentials.json',
+        credentialsJson: process.env.GOOGLE_CREDENTIALS_JSON,
         calendarId: process.env.GOOGLE_CALENDAR_ID || 'primary',
         sheetId: process.env.GOOGLE_SHEET_ID
     },

@@ -16,10 +16,16 @@ export const initializeCalendar = async (): Promise<calendar_v3.Calendar> => {
     }
 
     try {
-        // Load credentials from file
-        const credentials = JSON.parse(
-            fs.readFileSync(config.google.credentialsPath, 'utf-8')
-        );
+        // Load credentials from Env Var or File
+        let credentials;
+        if (config.google.credentialsJson) {
+            credentials = JSON.parse(config.google.credentialsJson);
+        } else {
+            if (!fs.existsSync(config.google.credentialsPath)) {
+                throw new Error(`Google Credentials file not found at ${config.google.credentialsPath}`);
+            }
+            credentials = JSON.parse(fs.readFileSync(config.google.credentialsPath, 'utf-8'));
+        }
 
         const auth = new google.auth.GoogleAuth({
             credentials,

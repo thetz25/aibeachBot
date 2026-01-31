@@ -32,9 +32,15 @@ export const initializeSheets = async (): Promise<sheets_v4.Sheets> => {
     }
 
     try {
-        const credentials = JSON.parse(
-            fs.readFileSync(config.google.credentialsPath, 'utf-8')
-        );
+        let credentials;
+        if (config.google.credentialsJson) {
+            credentials = JSON.parse(config.google.credentialsJson);
+        } else {
+            if (!fs.existsSync(config.google.credentialsPath)) {
+                throw new Error(`Google Credentials file not found at ${config.google.credentialsPath}`);
+            }
+            credentials = JSON.parse(fs.readFileSync(config.google.credentialsPath, 'utf-8'));
+        }
 
         const auth = new google.auth.GoogleAuth({
             credentials,
