@@ -7,7 +7,7 @@ if (!config.supabase.url || !config.supabase.key) {
     console.error("❌ CRTICAL: Supabase URL or Key missing.");
 }
 
-const supabase = createClient(
+export const supabase = createClient(
     config.supabase.url || '',
     config.supabase.key || ''
 );

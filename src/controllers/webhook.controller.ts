@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
 import { config } from '../config/env';
-import { getCarById, CAR_MODELS } from '../config/cars.config';
+import { carService } from '../services/car.service';
 import { sendMessage, sendAppointmentConfirmation, sendCarGallery, sendCarDetails, sendQuotation, sendYesNoReplies } from '../services/messenger.service';
 import { generateAIResponse } from '../services/openai.service';
 import { getHistory, saveMessage } from '../services/db.service';
-import { checkAvailability, bookAppointment, cancelAppointmentById, rescheduleAppointmentById } from '../services/appointment.service';
+import { checkAvailability, bookAppointment } from '../services/appointment.service';
 
 const pausedUsers = new Map<string, number>(); // UserId -> Expiry Timestamp
 const PAUSE_DURATION_MS = 30 * 60 * 1000; // 30 Minutes
@@ -35,7 +35,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
         for (const entry of body.entry) {
             if (entry.messaging) {
                 for (const webhook_event of entry.messaging) {
-                    const senderId = webhook_event.sender.id; // Corrected placement
+                    const senderId = webhook_event.sender.id;
 
                     // Handle Postbacks (Button Clicks)
                     if (webhook_event.postback) {
@@ -44,20 +44,20 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
                         if (payload.startsWith('DETAILS_')) {
                             const carId = payload.replace('DETAILS_', '');
-                            const car = getCarById(carId);
+                            const car = await carService.getCarById(carId);
                             if (car) {
                                 await sendCarDetails(senderId, car);
                             }
                         } else if (payload.startsWith('QUOTE_')) {
                             const carId = payload.replace('QUOTE_', '');
-                            const car = getCarById(carId);
+                            const car = await carService.getCarById(carId);
                             if (car) {
                                 // Send default quotation (20% DP, 5 Years)
                                 await sendQuotation(senderId, car, 0.20, 5);
                             }
                         } else if (payload.startsWith('TEST_DRIVE_')) {
                             const carId = payload.replace('TEST_DRIVE_', '');
-                            const car = getCarById(carId);
+                            const car = await carService.getCarById(carId);
                             if (car) {
                                 // Instruct AI to handle the booking flow
                                 const history = await getHistory(senderId);
@@ -81,18 +81,18 @@ export const handleWebhook = async (req: Request, res: Response) => {
                                 }
                             }
                         } else if (payload === 'SHOW_SERVICES') {
-                            await sendCarGallery(senderId, CAR_MODELS);
+                            const cars = await carService.getAllCars();
+                            await sendCarGallery(senderId, cars);
                         }
 
                         continue; // Skip further processing for postbacks
                     }
 
-
                     console.log('📩 Received event:', JSON.stringify(webhook_event, null, 2));
 
                     if (webhook_event.message && webhook_event.message.is_echo) {
                         const metadata = webhook_event.message.metadata;
-                        if (metadata !== 'CAR_BOT') { // Updated metadata check
+                        if (metadata !== 'CAR_BOT') {
                             const recipientId = webhook_event.recipient.id;
                             console.log(`👨‍💻 HUMAN ADMIN replied to ${recipientId}. Pausing AI for 30 mins.`);
                             pausedUsers.set(recipientId, Date.now() + PAUSE_DURATION_MS);
@@ -136,7 +136,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
                                 let toolResult: any;
 
                                 if (functionName === 'get_car_specs') {
-                                    const car = getCarById(args.model_id);
+                                    const car = await carService.getCarById(args.model_id);
                                     if (car) {
                                         await sendCarDetails(senderId, car);
                                         toolResult = `Displayed specs for ${car.name}.`;
@@ -144,7 +144,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
                                         toolResult = "Error: Invalid car model ID.";
                                     }
                                 } else if (functionName === 'calculate_quotation') {
-                                    const car = getCarById(args.model_id);
+                                    const car = await carService.getCarById(args.model_id);
                                     if (car) {
                                         const dp = args.downpayment_percent || 0.20;
                                         const years = args.years || 5;
@@ -154,11 +154,16 @@ export const handleWebhook = async (req: Request, res: Response) => {
                                         toolResult = "Error: Invalid car model ID.";
                                     }
                                 } else if (functionName === 'show_car_gallery') {
-                                    await sendCarGallery(senderId, CAR_MODELS);
+                                    const cars = await carService.getAllCars();
+                                    await sendCarGallery(senderId, cars);
                                     toolResult = "Car gallery displayed to user.";
                                 } else if (functionName === 'check_test_drive_availability') {
-                                    // Use first car model as default for availability check if not specified (duration assumed uniform)
-                                    const car = args.model_id ? getCarById(args.model_id) : CAR_MODELS[0];
+                                    let car = args.model_id ? await carService.getCarById(args.model_id) : null;
+                                    if (!car) {
+                                        const allCars = await carService.getAllCars();
+                                        car = allCars[0];
+                                    }
+
                                     if (car) {
                                         const slots = await checkAvailability(new Date(args.date), car);
                                         toolResult = slots.length > 0 ? slots.map((s: Date) => s.toISOString()) : "No available slots for this date.";
@@ -166,7 +171,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
                                         toolResult = "Error: Invalid car model ID.";
                                     }
                                 } else if (functionName === 'book_test_drive') {
-                                    const car = getCarById(args.model_id);
+                                    const car = await carService.getCarById(args.model_id);
                                     if (car) {
                                         const appointment = await bookAppointment(
                                             {
@@ -177,7 +182,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
                                             car,
                                             new Date(args.date_time)
                                         );
-                                        // Send confirmation message separately to ensure it is rich
                                         await sendAppointmentConfirmation(senderId, appointment);
                                         toolResult = `Successfully booked test drive. Reference ID: ${appointment.id}`;
                                     } else {
@@ -212,12 +216,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
                         const aiReply = response.content;
 
-                        if (aiReply && aiReply.includes('TRANSFER_AGENT')) {
-                            pausedUsers.set(senderId, Date.now() + (60 * 60 * 1000)); // Pause for 1 hour
-                            await sendMessage(senderId, "✅ Handing you over to our sales agent. Please wait, they will reply shortly.");
-                            await saveMessage(senderId, 'user', receivedText);
-                            await saveMessage(senderId, 'assistant', "✅ Handing you over to sales agent...");
-                        } else if (aiReply) {
+                        if (aiReply) {
                             await sendMessage(senderId, aiReply);
                             saveMessage(senderId, 'user', receivedText);
                             saveMessage(senderId, 'assistant', aiReply);

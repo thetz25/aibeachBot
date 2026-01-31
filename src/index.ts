@@ -14,6 +14,24 @@ app.use(bodyParser.json());
 app.get('/webhook', verifyWebhook);
 app.post('/webhook', handleWebhook);
 
+// API Routes for Admin Panel
+import { carController } from './controllers/car.controller';
+const apiRouter = express.Router();
+apiRouter.get('/cars', carController.getAll);
+apiRouter.get('/cars/:id', carController.getOne);
+apiRouter.post('/cars', carController.create);
+apiRouter.put('/cars/:id', carController.update);
+apiRouter.delete('/cars/:id', carController.delete);
+
+// File Upload
+import multer from 'multer';
+import { uploadController } from './controllers/upload.controller';
+
+const upload = multer({ dest: 'uploads/' });
+apiRouter.post('/upload', upload.single('file'), uploadController.uploadFile);
+
+app.use('/api', apiRouter);
+
 app.get('/', (req, res) => {
     res.send('🤖 AI Employee Chatbot is ALIVE and WAITING.');
 });

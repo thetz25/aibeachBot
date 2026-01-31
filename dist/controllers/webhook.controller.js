@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleWebhook = exports.verifyWebhook = void 0;
 const env_1 = require("../config/env");
-const cars_config_1 = require("../config/cars.config");
+const car_service_1 = require("../services/car.service");
 const messenger_service_1 = require("../services/messenger.service");
 const openai_service_1 = require("../services/openai.service");
 const db_service_1 = require("../services/db.service");
@@ -35,21 +35,21 @@ const handleWebhook = async (req, res) => {
         for (const entry of body.entry) {
             if (entry.messaging) {
                 for (const webhook_event of entry.messaging) {
-                    const senderId = webhook_event.sender.id; // Corrected placement
+                    const senderId = webhook_event.sender.id;
                     // Handle Postbacks (Button Clicks)
                     if (webhook_event.postback) {
                         const payload = webhook_event.postback.payload;
                         console.log(`🔘 Received postback: ${payload} from ${senderId}`);
                         if (payload.startsWith('DETAILS_')) {
                             const carId = payload.replace('DETAILS_', '');
-                            const car = (0, cars_config_1.getCarById)(carId);
+                            const car = await car_service_1.carService.getCarById(carId);
                             if (car) {
                                 await (0, messenger_service_1.sendCarDetails)(senderId, car);
                             }
                         }
                         else if (payload.startsWith('QUOTE_')) {
                             const carId = payload.replace('QUOTE_', '');
-                            const car = (0, cars_config_1.getCarById)(carId);
+                            const car = await car_service_1.carService.getCarById(carId);
                             if (car) {
                                 // Send default quotation (20% DP, 5 Years)
                                 await (0, messenger_service_1.sendQuotation)(senderId, car, 0.20, 5);
@@ -57,7 +57,7 @@ const handleWebhook = async (req, res) => {
                         }
                         else if (payload.startsWith('TEST_DRIVE_')) {
                             const carId = payload.replace('TEST_DRIVE_', '');
-                            const car = (0, cars_config_1.getCarById)(carId);
+                            const car = await car_service_1.carService.getCarById(carId);
                             if (car) {
                                 // Instruct AI to handle the booking flow
                                 const history = await (0, db_service_1.getHistory)(senderId);
@@ -78,14 +78,15 @@ const handleWebhook = async (req, res) => {
                             }
                         }
                         else if (payload === 'SHOW_SERVICES') {
-                            await (0, messenger_service_1.sendCarGallery)(senderId, cars_config_1.CAR_MODELS);
+                            const cars = await car_service_1.carService.getAllCars();
+                            await (0, messenger_service_1.sendCarGallery)(senderId, cars);
                         }
                         continue; // Skip further processing for postbacks
                     }
                     console.log('📩 Received event:', JSON.stringify(webhook_event, null, 2));
                     if (webhook_event.message && webhook_event.message.is_echo) {
                         const metadata = webhook_event.message.metadata;
-                        if (metadata !== 'CAR_BOT') { // Updated metadata check
+                        if (metadata !== 'CAR_BOT') {
                             const recipientId = webhook_event.recipient.id;
                             console.log(`👨‍💻 HUMAN ADMIN replied to ${recipientId}. Pausing AI for 30 mins.`);
                             pausedUsers.set(recipientId, Date.now() + PAUSE_DURATION_MS);
@@ -121,7 +122,7 @@ const handleWebhook = async (req, res) => {
                                 console.log(`🛠️ Executing tool: ${functionName}`, args);
                                 let toolResult;
                                 if (functionName === 'get_car_specs') {
-                                    const car = (0, cars_config_1.getCarById)(args.model_id);
+                                    const car = await car_service_1.carService.getCarById(args.model_id);
                                     if (car) {
                                         await (0, messenger_service_1.sendCarDetails)(senderId, car);
                                         toolResult = `Displayed specs for ${car.name}.`;
@@ -131,7 +132,7 @@ const handleWebhook = async (req, res) => {
                                     }
                                 }
                                 else if (functionName === 'calculate_quotation') {
-                                    const car = (0, cars_config_1.getCarById)(args.model_id);
+                                    const car = await car_service_1.carService.getCarById(args.model_id);
                                     if (car) {
                                         const dp = args.downpayment_percent || 0.20;
                                         const years = args.years || 5;
@@ -143,12 +144,16 @@ const handleWebhook = async (req, res) => {
                                     }
                                 }
                                 else if (functionName === 'show_car_gallery') {
-                                    await (0, messenger_service_1.sendCarGallery)(senderId, cars_config_1.CAR_MODELS);
+                                    const cars = await car_service_1.carService.getAllCars();
+                                    await (0, messenger_service_1.sendCarGallery)(senderId, cars);
                                     toolResult = "Car gallery displayed to user.";
                                 }
                                 else if (functionName === 'check_test_drive_availability') {
-                                    // Use first car model as default for availability check if not specified (duration assumed uniform)
-                                    const car = args.model_id ? (0, cars_config_1.getCarById)(args.model_id) : cars_config_1.CAR_MODELS[0];
+                                    let car = args.model_id ? await car_service_1.carService.getCarById(args.model_id) : null;
+                                    if (!car) {
+                                        const allCars = await car_service_1.carService.getAllCars();
+                                        car = allCars[0];
+                                    }
                                     if (car) {
                                         const slots = await (0, appointment_service_1.checkAvailability)(new Date(args.date), car);
                                         toolResult = slots.length > 0 ? slots.map((s) => s.toISOString()) : "No available slots for this date.";
@@ -158,14 +163,13 @@ const handleWebhook = async (req, res) => {
                                     }
                                 }
                                 else if (functionName === 'book_test_drive') {
-                                    const car = (0, cars_config_1.getCarById)(args.model_id);
+                                    const car = await car_service_1.carService.getCarById(args.model_id);
                                     if (car) {
                                         const appointment = await (0, appointment_service_1.bookAppointment)({
                                             name: args.customer_name,
                                             phone: args.customer_phone,
                                             facebookUserId: senderId
                                         }, car, new Date(args.date_time));
-                                        // Send confirmation message separately to ensure it is rich
                                         await (0, messenger_service_1.sendAppointmentConfirmation)(senderId, appointment);
                                         toolResult = `Successfully booked test drive. Reference ID: ${appointment.id}`;
                                     }

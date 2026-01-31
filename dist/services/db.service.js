@@ -1,13 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPageCredential = exports.savePageCredential = exports.getHistory = exports.saveMessage = void 0;
+exports.getPageCredential = exports.savePageCredential = exports.getHistory = exports.saveMessage = exports.supabase = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 const env_1 = require("../config/env");
 // Initialize Supabase Client
 if (!env_1.config.supabase.url || !env_1.config.supabase.key) {
     console.error("❌ CRTICAL: Supabase URL or Key missing.");
 }
-const supabase = (0, supabase_js_1.createClient)(env_1.config.supabase.url || '', env_1.config.supabase.key || '');
+exports.supabase = (0, supabase_js_1.createClient)(env_1.config.supabase.url || '', env_1.config.supabase.key || '');
 const MSG_TABLE = env_1.config.supabase.tableName || 'messages';
 const CRED_TABLE = 'page_credentials';
 /**
@@ -15,7 +15,7 @@ const CRED_TABLE = 'page_credentials';
  */
 const saveMessage = async (userId, role, content) => {
     try {
-        const { error } = await supabase
+        const { error } = await exports.supabase
             .from(MSG_TABLE)
             .insert([
             { user_id: userId, role: role, content: content }
@@ -33,7 +33,7 @@ exports.saveMessage = saveMessage;
  */
 const getHistory = async (userId, limit = 10) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await exports.supabase
             .from(MSG_TABLE)
             .select('*')
             .eq('user_id', userId)
@@ -62,7 +62,7 @@ exports.getHistory = getHistory;
  */
 const savePageCredential = async (pageId, pageName, accessToken) => {
     try {
-        const { error } = await supabase
+        const { error } = await exports.supabase
             .from(CRED_TABLE)
             .upsert([
             { page_id: pageId, page_name: pageName, access_token: accessToken, updated_at: new Date() }
@@ -82,7 +82,7 @@ exports.savePageCredential = savePageCredential;
  */
 const getPageCredential = async (pageId) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await exports.supabase
             .from(CRED_TABLE)
             .select('access_token')
             .eq('page_id', pageId)
