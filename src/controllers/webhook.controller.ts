@@ -113,12 +113,17 @@ export const handleWebhook = async (req: Request, res: Response) => {
                     }
 
                     if (webhook_event.message && webhook_event.message.text) {
+                        console.log('✅ Entered message processing block');
                         const receivedText = webhook_event.message.text;
+                        console.log(`📝 Received text: "${receivedText}"`);
+                        
                         let history: any[] = [];
+                        console.log('🔄 About to fetch history from Supabase...');
                         try {
                             history = await getHistory(senderId);
-                        } catch (err) {
-                            console.log('⚠️ Could not fetch history, continuing without it');
+                            console.log(`📚 Fetched ${history.length} messages from history`);
+                        } catch (err: any) {
+                            console.log('⚠️ Could not fetch history, continuing without it:', err.message);
                         }
 
                         // Map history to OpenAI format
