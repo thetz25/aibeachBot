@@ -25,7 +25,7 @@ apiRouter.delete('/cars/:id', car_controller_1.carController.delete);
 // File Upload
 const multer_1 = __importDefault(require("multer"));
 const upload_controller_1 = require("../src/controllers/upload.controller");
-const upload = (0, multer_1.default)({ dest: 'uploads/' });
+const upload = (0, multer_1.default)({ storage: multer_1.default.memoryStorage() });
 apiRouter.post('/upload', upload.single('file'), upload_controller_1.uploadController.uploadFile);
 app.use('/api', apiRouter);
 app.get('/', (req, res) => {
