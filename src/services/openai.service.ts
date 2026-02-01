@@ -2,6 +2,12 @@ import OpenAI from 'openai';
 import { config } from '../config/env';
 import { BOT_PERSONA } from '../config/knowledge';
 
+// Validate OpenAI API key on startup
+if (!process.env.OPENAI_API_KEY) {
+    console.error('❌ CRITICAL: OPENAI_API_KEY environment variable is not set!');
+    console.error('   The bot will not be able to generate responses.');
+}
+
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });

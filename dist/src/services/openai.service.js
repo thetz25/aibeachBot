@@ -6,6 +6,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateAIResponse = exports.tools = void 0;
 const openai_1 = __importDefault(require("openai"));
 const knowledge_1 = require("../config/knowledge");
+// Validate OpenAI API key on startup
+if (!process.env.OPENAI_API_KEY) {
+    console.error('❌ CRITICAL: OPENAI_API_KEY environment variable is not set!');
+    console.error('   The bot will not be able to generate responses.');
+}
 const openai = new openai_1.default({
     apiKey: process.env.OPENAI_API_KEY,
 });
