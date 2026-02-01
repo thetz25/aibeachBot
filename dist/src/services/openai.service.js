@@ -140,13 +140,17 @@ const generateAIResponse = async (userMessage, history = []) => {
             })),
             { role: "user", content: userMessage }
         ];
+        console.log('🌐 Sending request to OpenAI...');
         const completion = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: messages,
             max_tokens: 400,
             tools: exports.tools,
             tool_choice: "auto"
+        }, {
+            timeout: 10000 // 10 second timeout
         });
+        console.log('✅ Received response from OpenAI');
         const message = completion.choices[0].message;
         return {
             content: message.content,
