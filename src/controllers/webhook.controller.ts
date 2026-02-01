@@ -95,8 +95,10 @@ export const handleWebhook = async (req: Request, res: Response) => {
                     }
 
                     console.log('📩 Received event:', JSON.stringify(webhook_event, null, 2));
+                    console.log(`👤 Sender ID: ${senderId}`);
 
                     if (webhook_event.message && webhook_event.message.text) {
+                        console.log(`💬 Message text: ${webhook_event.message.text}`);
                         const receivedText = webhook_event.message.text;
                         const history = await getHistory(senderId);
 
@@ -202,11 +204,16 @@ export const handleWebhook = async (req: Request, res: Response) => {
                             }
 
                             const aiReply = response.content;
+                            console.log(`🤖 AI Response: ${aiReply ? aiReply.substring(0, 100) + '...' : 'null/empty'}`);
 
                             if (aiReply) {
+                                console.log(`📤 Sending message to ${senderId}`);
                                 await sendMessage(senderId, aiReply);
                                 await saveMessage(senderId, 'user', receivedText);
                                 await saveMessage(senderId, 'assistant', aiReply);
+                                console.log(`✅ Message sent and saved successfully`);
+                            } else {
+                                console.log(`⚠️ No AI response generated - not sending message`);
                             }
                         } catch (error: any) {
                             console.error(`❌ Error processing message from ${senderId}:`, error.message);
