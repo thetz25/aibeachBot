@@ -1,5 +1,5 @@
 {
-  "name": "workflow",
+  "name": "aibeach-bot",
   "version": "1.0.0",
   "description": "This project is managed by an autonomous AI workforce operating under the protocols defined in `AGENTS.md`.",
   "main": "dist/index.js",

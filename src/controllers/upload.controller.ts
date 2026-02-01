@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { supabase } from '../services/db.service';
-import fs from 'fs';
 
 export const uploadController = {
     async uploadFile(req: Request, res: Response) {
@@ -14,8 +13,8 @@ export const uploadController = {
             const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
             const filePath = `cars/${fileName}`;
 
-            // Read file buffer
-            const fileBuffer = fs.readFileSync(file.path);
+            // Use buffer directly from memory storage
+            const fileBuffer = file.buffer;
 
             // Upload to Supabase Storage
             const { data, error } = await supabase.storage
@@ -24,9 +23,6 @@ export const uploadController = {
                     contentType: file.mimetype,
                     upsert: false
                 });
-
-            // Remove temp file
-            fs.unlinkSync(file.path);
 
             if (error) throw error;
 
@@ -37,8 +33,6 @@ export const uploadController = {
 
             res.json({ url: publicUrl });
         } catch (error: any) {
-            // Cleanup if needed
-            if (req.file) fs.unlinkSync(req.file.path);
             res.status(500).json({ error: error.message });
         }
     }
