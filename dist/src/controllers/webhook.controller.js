@@ -36,7 +36,16 @@ const handleWebhook = async (req, res) => {
         for (const entry of body.entry) {
             if (entry.messaging) {
                 for (const webhook_event of entry.messaging) {
-                    const senderId = webhook_event.sender.id;
+                    console.log('🔍 Processing webhook_event:', typeof webhook_event);
+                    let senderId;
+                    try {
+                        senderId = webhook_event.sender.id;
+                        console.log(`✅ Extracted senderId: ${senderId}`);
+                    }
+                    catch (err) {
+                        console.error('❌ Failed to extract senderId:', err.message);
+                        continue;
+                    }
                     // Handle Postbacks (Button Clicks)
                     if (webhook_event.postback) {
                         try {
