@@ -125,11 +125,15 @@ const handleWebhook = async (req, res) => {
                             history = []; // Ensure history is empty array on failure
                         }
                         // Map history to OpenAI format
+                        console.log('🔄 Mapping history to OpenAI format...');
                         let aiHistory = history.map((msg) => ({
                             role: msg.role,
                             content: msg.content
                         }));
+                        console.log(`📊 Mapped ${aiHistory.length} history items`);
+                        console.log('🤖 Calling OpenAI API...');
                         let response = await (0, openai_service_1.generateAIResponse)(receivedText, aiHistory);
+                        console.log(`✅ OpenAI responded: ${response.content ? 'has content' : 'no content'}, tools: ${response.toolCalls ? response.toolCalls.length : 0}`);
                         // TOOL EXECUTION LOOP
                         try {
                             while (response.toolCalls && response.toolCalls.length > 0) {

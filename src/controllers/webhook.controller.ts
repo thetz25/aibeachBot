@@ -133,12 +133,16 @@ export const handleWebhook = async (req: Request, res: Response) => {
                         }
 
                         // Map history to OpenAI format
+                        console.log('🔄 Mapping history to OpenAI format...');
                         let aiHistory: any[] = history.map((msg: any) => ({
                             role: msg.role,
                             content: msg.content
                         }));
+                        console.log(`📊 Mapped ${aiHistory.length} history items`);
 
+                        console.log('🤖 Calling OpenAI API...');
                         let response = await generateAIResponse(receivedText, aiHistory);
+                        console.log(`✅ OpenAI responded: ${response.content ? 'has content' : 'no content'}, tools: ${response.toolCalls ? response.toolCalls.length : 0}`);
 
                         // TOOL EXECUTION LOOP
                         try {
