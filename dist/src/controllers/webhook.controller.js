@@ -132,8 +132,20 @@ const handleWebhook = async (req, res) => {
                         }));
                         console.log(`📊 Mapped ${aiHistory.length} history items`);
                         console.log('🤖 Calling OpenAI API...');
-                        let response = await (0, openai_service_1.generateAIResponse)(receivedText, aiHistory);
-                        console.log(`✅ OpenAI responded: ${response.content ? 'has content' : 'no content'}, tools: ${response.toolCalls ? response.toolCalls.length : 0}`);
+                        // Wrap OpenAI call in timeout
+                        let response;
+                        try {
+                            const openaiPromise = (0, openai_service_1.generateAIResponse)(receivedText, aiHistory);
+                            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('OpenAI timeout')), 10000));
+                            response = await Promise.race([openaiPromise, timeoutPromise]);
+                            console.log(`✅ OpenAI responded: ${response.content ? 'has content' : 'no content'}`);
+                        }
+                        catch (err) {
+                            console.error('❌ OpenAI call failed:', err.message);
+                            // Send fallback response
+                            await (0, messenger_service_1.sendMessage)(senderId, "Sorry, I'm having trouble processing your message. Please try again in a moment.");
+                            return; // Exit this message handler
+                        }
                         // TOOL EXECUTION LOOP
                         try {
                             while (response.toolCalls && response.toolCalls.length > 0) {
