@@ -32,54 +32,63 @@ exports.verifyWebhook = verifyWebhook;
 const handleWebhook = async (req, res) => {
     const body = req.body;
     if (body.object === 'page') {
+        // Send immediate response to Facebook to prevent timeout
+        res.status(200).send('EVENT_RECEIVED');
+        // Process events asynchronously after responding
         for (const entry of body.entry) {
             if (entry.messaging) {
                 for (const webhook_event of entry.messaging) {
                     const senderId = webhook_event.sender.id;
                     // Handle Postbacks (Button Clicks)
                     if (webhook_event.postback) {
-                        const payload = webhook_event.postback.payload;
-                        console.log(`🔘 Received postback: ${payload} from ${senderId}`);
-                        if (payload.startsWith('DETAILS_')) {
-                            const carId = payload.replace('DETAILS_', '');
-                            const car = await car_service_1.carService.getCarById(carId);
-                            if (car) {
-                                await (0, messenger_service_1.sendCarDetails)(senderId, car);
-                            }
-                        }
-                        else if (payload.startsWith('QUOTE_')) {
-                            const carId = payload.replace('QUOTE_', '');
-                            const car = await car_service_1.carService.getCarById(carId);
-                            if (car) {
-                                // Send default quotation (20% DP, 5 Years)
-                                await (0, messenger_service_1.sendQuotation)(senderId, car, 0.20, 5);
-                            }
-                        }
-                        else if (payload.startsWith('TEST_DRIVE_')) {
-                            const carId = payload.replace('TEST_DRIVE_', '');
-                            const car = await car_service_1.carService.getCarById(carId);
-                            if (car) {
-                                // Instruct AI to handle the booking flow
-                                const history = await (0, db_service_1.getHistory)(senderId);
-                                const instruction = `User clicked "Book Test Drive" for ${car.name}. Start the booking process by asking for their preferred date.`;
-                                // Map to AI history first
-                                const aiHistory = history.map((msg) => ({
-                                    role: msg.role,
-                                    content: msg.content
-                                }));
-                                // Inject hidden system instruction
-                                aiHistory.push({ role: 'system', content: instruction });
-                                // Trigger AI response
-                                const response = await (0, openai_service_1.generateAIResponse)(instruction, aiHistory);
-                                if (response.content) {
-                                    await (0, messenger_service_1.sendMessage)(senderId, response.content);
-                                    (0, db_service_1.saveMessage)(senderId, 'assistant', response.content);
+                        try {
+                            const payload = webhook_event.postback.payload;
+                            console.log(`🔘 Received postback: ${payload} from ${senderId}`);
+                            if (payload.startsWith('DETAILS_')) {
+                                const carId = payload.replace('DETAILS_', '');
+                                const car = await car_service_1.carService.getCarById(carId);
+                                if (car) {
+                                    await (0, messenger_service_1.sendCarDetails)(senderId, car);
                                 }
                             }
+                            else if (payload.startsWith('QUOTE_')) {
+                                const carId = payload.replace('QUOTE_', '');
+                                const car = await car_service_1.carService.getCarById(carId);
+                                if (car) {
+                                    // Send default quotation (20% DP, 5 Years)
+                                    await (0, messenger_service_1.sendQuotation)(senderId, car, 0.20, 5);
+                                }
+                            }
+                            else if (payload.startsWith('TEST_DRIVE_')) {
+                                const carId = payload.replace('TEST_DRIVE_', '');
+                                const car = await car_service_1.carService.getCarById(carId);
+                                if (car) {
+                                    // Instruct AI to handle the booking flow
+                                    const history = await (0, db_service_1.getHistory)(senderId);
+                                    const instruction = `User clicked "Book Test Drive" for ${car.name}. Start the booking process by asking for their preferred date.`;
+                                    // Map to AI history first
+                                    const aiHistory = history.map((msg) => ({
+                                        role: msg.role,
+                                        content: msg.content
+                                    }));
+                                    // Inject hidden system instruction
+                                    aiHistory.push({ role: 'system', content: instruction });
+                                    // Trigger AI response
+                                    const response = await (0, openai_service_1.generateAIResponse)(instruction, aiHistory);
+                                    if (response.content) {
+                                        await (0, messenger_service_1.sendMessage)(senderId, response.content);
+                                        await (0, db_service_1.saveMessage)(senderId, 'assistant', response.content);
+                                    }
+                                }
+                            }
+                            else if (payload === 'SHOW_SERVICES') {
+                                const cars = await car_service_1.carService.getAllCars();
+                                await (0, messenger_service_1.sendCarGallery)(senderId, cars);
+                            }
                         }
-                        else if (payload === 'SHOW_SERVICES') {
-                            const cars = await car_service_1.carService.getAllCars();
-                            await (0, messenger_service_1.sendCarGallery)(senderId, cars);
+                        catch (error) {
+                            console.error(`❌ Error handling postback from ${senderId}:`, error.message);
+                            await (0, messenger_service_1.sendMessage)(senderId, "Sorry, I encountered an error processing your request. Please try again.");
                         }
                         continue; // Skip further processing for postbacks
                     }
@@ -113,103 +122,108 @@ const handleWebhook = async (req, res) => {
                         }));
                         let response = await (0, openai_service_1.generateAIResponse)(receivedText, aiHistory);
                         // TOOL EXECUTION LOOP
-                        while (response.toolCalls && response.toolCalls.length > 0) {
-                            const toolMessages = [];
-                            // Process each tool call
-                            for (const toolCall of response.toolCalls) {
-                                const functionName = toolCall.function.name;
-                                const args = JSON.parse(toolCall.function.arguments);
-                                console.log(`🛠️ Executing tool: ${functionName}`, args);
-                                let toolResult;
-                                if (functionName === 'get_car_specs') {
-                                    const car = await car_service_1.carService.getCarById(args.model_id);
-                                    if (car) {
-                                        await (0, messenger_service_1.sendCarDetails)(senderId, car);
-                                        toolResult = `Displayed specs for ${car.name}.`;
+                        try {
+                            while (response.toolCalls && response.toolCalls.length > 0) {
+                                const toolMessages = [];
+                                // Process each tool call
+                                for (const toolCall of response.toolCalls) {
+                                    const functionName = toolCall.function.name;
+                                    const args = JSON.parse(toolCall.function.arguments);
+                                    console.log(`🛠️ Executing tool: ${functionName}`, args);
+                                    let toolResult;
+                                    if (functionName === 'get_car_specs') {
+                                        const car = await car_service_1.carService.getCarById(args.model_id);
+                                        if (car) {
+                                            await (0, messenger_service_1.sendCarDetails)(senderId, car);
+                                            toolResult = `Displayed specs for ${car.name}.`;
+                                        }
+                                        else {
+                                            toolResult = "Error: Invalid car model ID.";
+                                        }
                                     }
-                                    else {
-                                        toolResult = "Error: Invalid car model ID.";
+                                    else if (functionName === 'calculate_quotation') {
+                                        const car = await car_service_1.carService.getCarById(args.model_id);
+                                        if (car) {
+                                            const dp = args.downpayment_percent || 0.20;
+                                            const years = args.years || 5;
+                                            await (0, messenger_service_1.sendQuotation)(senderId, car, dp, years);
+                                            toolResult = `Sent quotation for ${car.name} with ${dp * 100}% DP for ${years} years.`;
+                                        }
+                                        else {
+                                            toolResult = "Error: Invalid car model ID.";
+                                        }
                                     }
+                                    else if (functionName === 'show_car_gallery') {
+                                        const cars = await car_service_1.carService.getAllCars();
+                                        await (0, messenger_service_1.sendCarGallery)(senderId, cars);
+                                        toolResult = "Car gallery displayed to user.";
+                                    }
+                                    else if (functionName === 'check_test_drive_availability') {
+                                        let car = args.model_id ? await car_service_1.carService.getCarById(args.model_id) : null;
+                                        if (!car) {
+                                            const allCars = await car_service_1.carService.getAllCars();
+                                            car = allCars[0];
+                                        }
+                                        if (car) {
+                                            const slots = await (0, appointment_service_1.checkAvailability)(new Date(args.date), car);
+                                            toolResult = slots.length > 0 ? slots.map((s) => s.toISOString()) : "No available slots for this date.";
+                                        }
+                                        else {
+                                            toolResult = "Error: Invalid car model ID.";
+                                        }
+                                    }
+                                    else if (functionName === 'book_test_drive') {
+                                        const car = await car_service_1.carService.getCarById(args.model_id);
+                                        if (car) {
+                                            const appointment = await (0, appointment_service_1.bookAppointment)({
+                                                name: args.customer_name,
+                                                phone: args.customer_phone,
+                                                facebookUserId: senderId
+                                            }, car, new Date(args.date_time));
+                                            await (0, messenger_service_1.sendAppointmentConfirmation)(senderId, appointment);
+                                            toolResult = `Successfully booked test drive. Reference ID: ${appointment.id}`;
+                                        }
+                                        else {
+                                            toolResult = "Error: Invalid car model ID.";
+                                        }
+                                    }
+                                    else if (functionName === 'send_quick_replies') {
+                                        await (0, messenger_service_1.sendYesNoReplies)(senderId, args.text);
+                                        toolResult = "Quick replies sent to user.";
+                                    }
+                                    toolMessages.push({
+                                        role: 'tool',
+                                        tool_call_id: toolCall.id,
+                                        name: functionName,
+                                        content: JSON.stringify(toolResult)
+                                    });
                                 }
-                                else if (functionName === 'calculate_quotation') {
-                                    const car = await car_service_1.carService.getCarById(args.model_id);
-                                    if (car) {
-                                        const dp = args.downpayment_percent || 0.20;
-                                        const years = args.years || 5;
-                                        await (0, messenger_service_1.sendQuotation)(senderId, car, dp, years);
-                                        toolResult = `Sent quotation for ${car.name} with ${dp * 100}% DP for ${years} years.`;
-                                    }
-                                    else {
-                                        toolResult = "Error: Invalid car model ID.";
-                                    }
-                                }
-                                else if (functionName === 'show_car_gallery') {
-                                    const cars = await car_service_1.carService.getAllCars();
-                                    await (0, messenger_service_1.sendCarGallery)(senderId, cars);
-                                    toolResult = "Car gallery displayed to user.";
-                                }
-                                else if (functionName === 'check_test_drive_availability') {
-                                    let car = args.model_id ? await car_service_1.carService.getCarById(args.model_id) : null;
-                                    if (!car) {
-                                        const allCars = await car_service_1.carService.getAllCars();
-                                        car = allCars[0];
-                                    }
-                                    if (car) {
-                                        const slots = await (0, appointment_service_1.checkAvailability)(new Date(args.date), car);
-                                        toolResult = slots.length > 0 ? slots.map((s) => s.toISOString()) : "No available slots for this date.";
-                                    }
-                                    else {
-                                        toolResult = "Error: Invalid car model ID.";
-                                    }
-                                }
-                                else if (functionName === 'book_test_drive') {
-                                    const car = await car_service_1.carService.getCarById(args.model_id);
-                                    if (car) {
-                                        const appointment = await (0, appointment_service_1.bookAppointment)({
-                                            name: args.customer_name,
-                                            phone: args.customer_phone,
-                                            facebookUserId: senderId
-                                        }, car, new Date(args.date_time));
-                                        await (0, messenger_service_1.sendAppointmentConfirmation)(senderId, appointment);
-                                        toolResult = `Successfully booked test drive. Reference ID: ${appointment.id}`;
-                                    }
-                                    else {
-                                        toolResult = "Error: Invalid car model ID.";
-                                    }
-                                }
-                                else if (functionName === 'send_quick_replies') {
-                                    await (0, messenger_service_1.sendYesNoReplies)(senderId, args.text);
-                                    toolResult = "Quick replies sent to user.";
-                                }
-                                toolMessages.push({
-                                    role: 'tool',
-                                    tool_call_id: toolCall.id,
-                                    name: functionName,
-                                    content: JSON.stringify(toolResult)
+                                // Update history with assistant message containing tool calls
+                                aiHistory.push({
+                                    role: 'assistant',
+                                    content: response.content || "",
+                                    tool_calls: response.toolCalls
                                 });
+                                // Add tool results to history
+                                aiHistory.push(...toolMessages);
+                                // Get next response from AI
+                                response = await (0, openai_service_1.generateAIResponse)(receivedText, aiHistory);
                             }
-                            // Update history with assistant message containing tool calls
-                            aiHistory.push({
-                                role: 'assistant',
-                                content: response.content || "",
-                                tool_calls: response.toolCalls
-                            });
-                            // Add tool results to history
-                            aiHistory.push(...toolMessages);
-                            // Get next response from AI
-                            response = await (0, openai_service_1.generateAIResponse)(receivedText, aiHistory);
+                            const aiReply = response.content;
+                            if (aiReply) {
+                                await (0, messenger_service_1.sendMessage)(senderId, aiReply);
+                                await (0, db_service_1.saveMessage)(senderId, 'user', receivedText);
+                                await (0, db_service_1.saveMessage)(senderId, 'assistant', aiReply);
+                            }
                         }
-                        const aiReply = response.content;
-                        if (aiReply) {
-                            await (0, messenger_service_1.sendMessage)(senderId, aiReply);
-                            (0, db_service_1.saveMessage)(senderId, 'user', receivedText);
-                            (0, db_service_1.saveMessage)(senderId, 'assistant', aiReply);
+                        catch (error) {
+                            console.error(`❌ Error processing message from ${senderId}:`, error.message);
+                            await (0, messenger_service_1.sendMessage)(senderId, "Sorry, I encountered an error. Please try again in a moment.");
                         }
                     }
                 }
             }
         }
-        res.status(200).send('EVENT_RECEIVED');
     }
     else {
         res.sendStatus(404);
