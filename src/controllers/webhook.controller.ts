@@ -120,10 +120,16 @@ export const handleWebhook = async (req: Request, res: Response) => {
                         let history: any[] = [];
                         console.log('🔄 About to fetch history from Supabase...');
                         try {
-                            history = await getHistory(senderId);
+                            // Add timeout to prevent hanging
+                            const historyPromise = getHistory(senderId);
+                            const timeoutPromise = new Promise((_, reject) => 
+                                setTimeout(() => reject(new Error('Supabase timeout')), 3000)
+                            );
+                            history = await Promise.race([historyPromise, timeoutPromise]) as any[];
                             console.log(`📚 Fetched ${history.length} messages from history`);
                         } catch (err: any) {
                             console.log('⚠️ Could not fetch history, continuing without it:', err.message);
+                            history = []; // Ensure history is empty array on failure
                         }
 
                         // Map history to OpenAI format
