@@ -7,8 +7,6 @@ const messenger_service_1 = require("../services/messenger.service");
 const openai_service_1 = require("../services/openai.service");
 const db_service_1 = require("../services/db.service");
 const appointment_service_1 = require("../services/appointment.service");
-const pausedUsers = new Map(); // UserId -> Expiry Timestamp
-const PAUSE_DURATION_MS = 30 * 60 * 1000; // 30 Minutes
 // GET /webhook - Verification Challenge
 const verifyWebhook = (req, res) => {
     const mode = req.query['hub.mode'];
@@ -93,25 +91,6 @@ const handleWebhook = async (req, res) => {
                         continue; // Skip further processing for postbacks
                     }
                     console.log('📩 Received event:', JSON.stringify(webhook_event, null, 2));
-                    if (webhook_event.message && webhook_event.message.is_echo) {
-                        const metadata = webhook_event.message.metadata;
-                        if (metadata !== 'CAR_BOT') {
-                            const recipientId = webhook_event.recipient.id;
-                            console.log(`👨‍💻 HUMAN ADMIN replied to ${recipientId}. Pausing AI for 30 mins.`);
-                            pausedUsers.set(recipientId, Date.now() + PAUSE_DURATION_MS);
-                        }
-                        continue;
-                    }
-                    if (pausedUsers.has(senderId)) {
-                        const expiry = pausedUsers.get(senderId) || 0;
-                        if (Date.now() < expiry) {
-                            console.log(`🤐 User ${senderId} is paused. Ignoring until ${new Date(expiry).toLocaleTimeString()}`);
-                            continue;
-                        }
-                        else {
-                            pausedUsers.delete(senderId);
-                        }
-                    }
                     if (webhook_event.message && webhook_event.message.text) {
                         const receivedText = webhook_event.message.text;
                         const history = await (0, db_service_1.getHistory)(senderId);

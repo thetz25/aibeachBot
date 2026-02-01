@@ -6,9 +6,6 @@ import { generateAIResponse } from '../services/openai.service';
 import { getHistory, saveMessage } from '../services/db.service';
 import { checkAvailability, bookAppointment } from '../services/appointment.service';
 
-const pausedUsers = new Map<string, number>(); // UserId -> Expiry Timestamp
-const PAUSE_DURATION_MS = 30 * 60 * 1000; // 30 Minutes
-
 // GET /webhook - Verification Challenge
 export const verifyWebhook = (req: Request, res: Response) => {
     const mode = req.query['hub.mode'];
@@ -98,26 +95,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
                     }
 
                     console.log('📩 Received event:', JSON.stringify(webhook_event, null, 2));
-
-                    if (webhook_event.message && webhook_event.message.is_echo) {
-                        const metadata = webhook_event.message.metadata;
-                        if (metadata !== 'CAR_BOT') {
-                            const recipientId = webhook_event.recipient.id;
-                            console.log(`👨‍💻 HUMAN ADMIN replied to ${recipientId}. Pausing AI for 30 mins.`);
-                            pausedUsers.set(recipientId, Date.now() + PAUSE_DURATION_MS);
-                        }
-                        continue;
-                    }
-
-                    if (pausedUsers.has(senderId)) {
-                        const expiry = pausedUsers.get(senderId) || 0;
-                        if (Date.now() < expiry) {
-                            console.log(`🤐 User ${senderId} is paused. Ignoring until ${new Date(expiry).toLocaleTimeString()}`);
-                            continue;
-                        } else {
-                            pausedUsers.delete(senderId);
-                        }
-                    }
 
                     if (webhook_event.message && webhook_event.message.text) {
                         const receivedText = webhook_event.message.text;
