@@ -107,9 +107,13 @@ export const handleWebhook = async (req: Request, res: Response) => {
                     console.log(`👤 Sender ID: ${senderId}`);
 
                     if (webhook_event.message && webhook_event.message.text) {
-                        console.log(`💬 Message text: ${webhook_event.message.text}`);
                         const receivedText = webhook_event.message.text;
-                        const history = await getHistory(senderId);
+                        let history: any[] = [];
+                        try {
+                            history = await getHistory(senderId);
+                        } catch (err) {
+                            console.log('⚠️ Could not fetch history, continuing without it');
+                        }
 
                         // Map history to OpenAI format
                         let aiHistory: any[] = history.map((msg: any) => ({
@@ -218,9 +222,10 @@ export const handleWebhook = async (req: Request, res: Response) => {
                             if (aiReply) {
                                 console.log(`📤 Sending message to ${senderId}`);
                                 await sendMessage(senderId, aiReply);
-                                await saveMessage(senderId, 'user', receivedText);
-                                await saveMessage(senderId, 'assistant', aiReply);
-                                console.log(`✅ Message sent and saved successfully`);
+                                // Save messages non-blocking (don't wait for completion)
+                                saveMessage(senderId, 'user', receivedText).catch(() => {});
+                                saveMessage(senderId, 'assistant', aiReply).catch(() => {});
+                                console.log(`✅ Message sent successfully`);
                             } else {
                                 console.log(`⚠️ No AI response generated - not sending message`);
                             }
