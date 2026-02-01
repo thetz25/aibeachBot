@@ -105,6 +105,12 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
                     console.log('📩 Received event:', JSON.stringify(webhook_event, null, 2));
                     console.log(`👤 Sender ID: ${senderId}`);
+                    console.log('🔍 DEBUG: About to check message.text condition');
+                    console.log(`   - webhook_event.message exists: ${!!webhook_event.message}`);
+                    if (webhook_event.message) {
+                        console.log(`   - webhook_event.message.text exists: ${!!webhook_event.message.text}`);
+                        console.log(`   - text value: "${webhook_event.message.text}"`);
+                    }
 
                     if (webhook_event.message && webhook_event.message.text) {
                         const receivedText = webhook_event.message.text;
